@@ -18,7 +18,7 @@ $ xisfits <image.xisf> <image.fits>
 
 ## Known issues and limitations
 
-- Although the XISF format supports signed integers, currently only UInt8, UInt16 and UInt32 types can be converted to FITS.
+- Although the XISF format supports signed integers, currently only UInt8, UInt16 and UInt32 types (those used by PixInsight Core) can be converted to FITS.
 - UInt8 is converted to FITS BITPIX 8, which is also unsigned.
 - UInt16 and UInt32 are converted to signed 16 and 32 bits. In order to do so, if there are unsigned values greater than what signed values can store, those values are clipped.
 - Compressed data is still unsupported.
