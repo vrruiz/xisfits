@@ -4,7 +4,7 @@ XISFITS is a tool to convert PixInsight images (XISF) to FITS.
 
 ## Installation
 
-This is programmed in [Rust](http://rust-lang.org/) language. Rust development tools must be installed following its own [instructions](https://www.rust-lang.org/tools/install). After that, download XISFITS sources and, on the main directory, run:
+XISFITS is programmed in [Rust](http://rust-lang.org/) language and doesn't depend on third-party libraries. Rust development tools must be installed following its own [instructions](https://www.rust-lang.org/tools/install). After that, download XISFITS sources and, on the main directory, run:
 
 ```bash
 $ cargo build xisfits
