@@ -281,13 +281,15 @@ fn main() -> io::Result<()> {
     let mut bitpix: i64 = 0;
     // Convert binary formats
     //
-    // +--------+-------+------+
-    // | XISF   > Rust  > FITS |
-    // +--------+-------+------+
-    // | UInt8  | u8    | 8    |
-    // | UInt16 | i16   | 16   |
-    // | UInt32 | i32   | 32   |
-    // +--------+-------+------+
+    // +---------+-------+------+
+    // | XISF    > Rust  > FITS |
+    // +---------+-------+------+
+    // | UInt8   | u8    | 8    |
+    // | UInt16  | i16   | 16   |
+    // | UInt32  | i32   | 32   |
+    // | Float32 | f32   | -32  |
+    // | Float64 | f64   | -64  |
+    // +---------+-------+------+
     //
     for i in 0..xisf_header.geometry_channels as usize {
             match xisf_header.sample_format.as_str() {
