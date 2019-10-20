@@ -280,7 +280,15 @@ fn main() -> io::Result<()> {
     let mut data_bytes: Vec<u8> = vec![];
     let mut bitpix: i64 = 0;
     // Convert binary formats
-    // (UInt8, UInt16, UInt32) -> Big endian (u8, i16, i32)
+    //
+    // +--------+-------+------+
+    // | XISF   > Rust  > FITS |
+    // +--------+-------+------+
+    // | UInt8  | u8    | 8    |
+    // | UInt16 | i16   | 16   |
+    // | UInt32 | i32   | 32   |
+    // +--------+-------+------+
+    //
     for i in 0..xisf_header.geometry_channels as usize {
             match xisf_header.sample_format.as_str() {
                 "UInt8" => {
