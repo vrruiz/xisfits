@@ -303,8 +303,14 @@ fn main() -> io::Result<()> {
                     bitpix = 32;
                     data_bytes.append(&mut convert::u32_to_i32_to_u8_be(&xisf_data.uint32[i]));
                 },
-                // "Float32" =>  { },
-                // "Float64" =>  { },
+                "Float32" =>  {
+                    bitpix = -32;
+                    data_bytes.append(&mut convert::f32_to_u8_be(&xisf_data.float32[i]));
+                },
+                "Float64" =>  {
+                    bitpix = -64;
+                    data_bytes.append(&mut convert::f64_to_u8_be(&xisf_data.float64[i]));
+                },
                  _ => println!("Convert to FITS > Unsupported XISF type > {}", xisf_header.sample_format.as_str()),
             }
     }
@@ -318,7 +324,7 @@ fn main() -> io::Result<()> {
     }
 
     // Write FITS image to disk
-    if bitpix > 0 {
+    if bitpix != 0 {
         println!("Convert to FITS > Write image data");
         let fits_hd = fitswriter::FitsHeaderData {
             bitpix: bitpix,
@@ -327,7 +333,7 @@ fn main() -> io::Result<()> {
             bzero: 0,
             bscale: 1,
             datamin: 0,
-            datamax: 2u64.pow((xisf_header.sample_format_bytes * 8).into()) - 1,
+            datamax: 0,
             history: vec!["".to_string()],
             comment: vec!["".to_string()],
             data_bytes: data_bytes,

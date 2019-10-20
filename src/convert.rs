@@ -111,3 +111,23 @@ pub fn u32_to_i32_to_u8_be(v: &Vec<u32>) -> Vec<u8> {
     }
     result
 }
+
+// From f32 to Vec<u8> (Big Endian)
+pub fn f32_to_u8_be(v: &Vec<f32>) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::new();
+    for i in 0..v.len() {
+        let mut value = v[i].to_bits().to_be_bytes().to_vec();
+        result.append(&mut value);
+    }
+    result
+}
+
+// From f64 to Vec<u8> (Big Endian)
+pub fn f64_to_u8_be(v: &Vec<f64>) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::new();
+    for i in 0..v.len() {
+        let mut value = v[i].to_bits().to_be_bytes().to_vec();
+        result.append(&mut value);
+    }
+    result
+}
