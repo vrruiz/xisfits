@@ -131,13 +131,13 @@ fn main() -> io::Result<()> {
     f.read_exact(&mut buffer_header_reserved)?;
 
     // Header: XML section
-    let mut handle = f.by_ref().take(convert::u8_to_u32(&buffer_header_length)[0] as u64);
+    let mut handle = f.by_ref().take(convert::u8_to_v_u32(&buffer_header_length)[0] as u64);
     handle.read_to_string(&mut buffer_header_header)?;
 
     // Assign header values to XISF header struct
     xisf_header.signature = buffer_header_signature.clone();
-    xisf_header.length = convert::u8_to_u32(&buffer_header_length)[0];
-    xisf_header.reserved = convert::u8_to_u32(&buffer_header_reserved)[0];
+    xisf_header.length = convert::u8_to_v_u32(&buffer_header_length)[0];
+    xisf_header.reserved = convert::u8_to_v_u32(&buffer_header_reserved)[0];
     xisf_header.header = buffer_header_header.clone();
     // -- End of read header fields
 
@@ -257,10 +257,10 @@ fn main() -> io::Result<()> {
             // Convert bytes to actual numbers and store the channel in a vector
             match xisf_header.sample_format.as_str() {                
                 "UInt8" => xisf_data.uint8.push(image_channel.clone()),
-                "UInt16" => xisf_data.uint16.push(convert::u8_to_u16(&image_channel)),
-                "UInt32" => xisf_data.uint32.push(convert::u8_to_u32(&image_channel)),
-                "Float32" => xisf_data.float32.push(convert::u8_to_f32(&image_channel)),
-                "Float64" => xisf_data.float64.push(convert::u8_to_f64(&image_channel)),
+                "UInt16" => xisf_data.uint16.push(convert::u8_to_v_u16(&image_channel)),
+                "UInt32" => xisf_data.uint32.push(convert::u8_to_v_u32(&image_channel)),
+                "Float32" => xisf_data.float32.push(convert::u8_to_v_f32(&image_channel)),
+                "Float64" => xisf_data.float64.push(convert::u8_to_v_f64(&image_channel)),
                  _ => println!("Read XISF > Unsupported type > {}", xisf_header.sample_format.as_str()),
             }
 
@@ -299,19 +299,19 @@ fn main() -> io::Result<()> {
                 },
                 "UInt16" => {
                     bitpix = 16;
-                    data_bytes.append(&mut convert::u16_to_i16_to_u8_be(&xisf_data.uint16[i]));
+                    data_bytes.append(&mut convert::u16_to_i16_to_v_u8_be(&xisf_data.uint16[i]));
                 },
                 "UInt32" => {
                     bitpix = 32;
-                    data_bytes.append(&mut convert::u32_to_i32_to_u8_be(&xisf_data.uint32[i]));
+                    data_bytes.append(&mut convert::u32_to_i32_to_v_u8_be(&xisf_data.uint32[i]));
                 },
                 "Float32" =>  {
                     bitpix = -32;
-                    data_bytes.append(&mut convert::f32_to_u8_be(&xisf_data.float32[i]));
+                    data_bytes.append(&mut convert::f32_to_v_u8_be(&xisf_data.float32[i]));
                 },
                 "Float64" =>  {
                     bitpix = -64;
-                    data_bytes.append(&mut convert::f64_to_u8_be(&xisf_data.float64[i]));
+                    data_bytes.append(&mut convert::f64_to_v_u8_be(&xisf_data.float64[i]));
                 },
                  _ => println!("Convert to FITS > Unsupported XISF type > {}", xisf_header.sample_format.as_str()),
             }

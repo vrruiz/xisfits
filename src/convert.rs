@@ -34,16 +34,16 @@ macro_rules! u8_to_t {
     };
 }
 
-u8_to_t!(u8_to_u16, read_u16, u16);
-u8_to_t!(u8_to_i16, read_i16, i16);
-u8_to_t!(u8_to_u32, read_u32, u32);
-u8_to_t!(u8_to_i32, read_i32, i32);
-u8_to_t!(u8_to_u64, read_u64, u64);
-u8_to_t!(u8_to_i64, read_i64, i64);
-u8_to_t!(u8_to_u128, read_u128, u128);
-u8_to_t!(u8_to_i128, read_i128, i128);
-u8_to_t!(u8_to_f32, read_f32, f32);
-u8_to_t!(u8_to_f64, read_f64, f64);
+u8_to_t!(u8_to_v_u16, read_u16, u16);
+u8_to_t!(u8_to_v_i16, read_i16, i16);
+u8_to_t!(u8_to_v_u32, read_u32, u32);
+u8_to_t!(u8_to_v_i32, read_i32, i32);
+u8_to_t!(u8_to_v_u64, read_u64, u64);
+u8_to_t!(u8_to_v_i64, read_i64, i64);
+u8_to_t!(u8_to_v_u128, read_u128, u128);
+u8_to_t!(u8_to_v_i128, read_i128, i128);
+u8_to_t!(u8_to_v_f32, read_f32, f32);
+u8_to_t!(u8_to_v_f64, read_f64, f64);
 
 macro_rules! t_to_u8_be {
     ($func_name:ident, $type:ty) => {
@@ -60,18 +60,18 @@ macro_rules! t_to_u8_be {
     };
 }
 
-t_to_u8_be!(i8_to_u8_be, i8);
-t_to_u8_be!(u16_to_u8_be, u16);
-t_to_u8_be!(i16_to_u8_be, i16);
-t_to_u8_be!(u32_to_u8_be, u32);
-t_to_u8_be!(i32_to_u8_be, i32);
-t_to_u8_be!(u64_to_u8_be, u64);
-t_to_u8_be!(i64_to_u8_be, i64);
-t_to_u8_be!(i128_to_u8_be, i128);
-t_to_u8_be!(u128_to_u8_be, u128);
+t_to_u8_be!(i8_to_v_u8_be, i8);
+t_to_u8_be!(u16_to_v_u8_be, u16);
+t_to_u8_be!(i16_to_v_u8_be, i16);
+t_to_u8_be!(u32_to_v_u8_be, u32);
+t_to_u8_be!(i32_to_v_u8_be, i32);
+t_to_u8_be!(u64_to_v_u8_be, u64);
+t_to_u8_be!(i64_to_v_u8_be, i64);
+t_to_u8_be!(i128_to_v_u8_be, i128);
+t_to_u8_be!(u128_to_v_u8_be, u128);
 
 // From u16 to i16 to Vec<u8> (Big Endian)
-pub fn u16_to_i16_to_u8_be(v: &Vec<u16>) -> Vec<u8> {
+pub fn u16_to_i16_to_v_u8_be(v: &Vec<u16>) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for i in 0..v.len() {
         let mut v_u = v[i];
@@ -85,7 +85,7 @@ pub fn u16_to_i16_to_u8_be(v: &Vec<u16>) -> Vec<u8> {
 }
 
 // From u32 to i32 to Vec<u8> (Big Endian)
-pub fn u32_to_i32_to_u8_be(v: &Vec<u32>) -> Vec<u8> {
+pub fn u32_to_i32_to_v_u8_be(v: &Vec<u32>) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for i in 0..v.len() {
         let mut v_u = v[i];
@@ -99,7 +99,7 @@ pub fn u32_to_i32_to_u8_be(v: &Vec<u32>) -> Vec<u8> {
 }
 
 // From f32 to Vec<u8> (Big Endian)
-pub fn f32_to_u8_be(v: &Vec<f32>) -> Vec<u8> {
+pub fn f32_to_v_u8_be(v: &Vec<f32>) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for i in 0..v.len() {
         let mut value = v[i].to_bits().to_be_bytes().to_vec();
@@ -109,7 +109,7 @@ pub fn f32_to_u8_be(v: &Vec<f32>) -> Vec<u8> {
 }
 
 // From f64 to Vec<u8> (Big Endian)
-pub fn f64_to_u8_be(v: &Vec<f64>) -> Vec<u8> {
+pub fn f64_to_v_u8_be(v: &Vec<f64>) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for i in 0..v.len() {
         let mut value = v[i].to_bits().to_be_bytes().to_vec();
