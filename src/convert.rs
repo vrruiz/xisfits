@@ -2,20 +2,6 @@ use std::io::Cursor;
 use byteorder::LittleEndian;
 use byteorder::ReadBytesExt;
 
-/*
-pub fn u8_4_to_u32(a: &[u8;4]) -> u32 {
-    // Little endian conversion
-    let mut rdr = Cursor::new(a);
-    let option = rdr.read_u32::<LittleEndian>();
-    let mut r: u32 = 0;
-    match option {
-        Ok(n) => r = n,
-        Err(_err) => eprintln!("Error converting {:?} to u32", a),
-    }
-    return r;
-}
-*/
-
 pub fn u8_to_i8(vector: &[u8]) -> Vec<i8> {
     let mut rdr = Cursor::new(vector);
     let mut values = Vec::new();
