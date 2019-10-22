@@ -15,7 +15,7 @@ $ cargo build xisfits
 Currently, as no binaries are distributed, XISFITS should be run using Rust and its Cargo tool:
 
 ```bash
-$ cargo run  <original image.xisf> <new image.fits>
+$ cargo run --release <original image.xisf> <new image.fits>
 ```
 
 If using the compiled binary:
