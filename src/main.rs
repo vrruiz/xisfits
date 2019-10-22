@@ -102,6 +102,8 @@ fn main() -> io::Result<()> {
          ("Float128", 16),
         ].iter().cloned().collect();
 
+    let mut xisf_fits_keywords = Vec::new();
+
     let mut buffer_header_signature = String::new();
     let mut buffer_header_length = [0; 4];
     let mut buffer_header_reserved = [0; 4];
@@ -212,6 +214,24 @@ fn main() -> io::Result<()> {
                     }
                 }
                 // NOTE: location_length == geometry x * geometry y * ... * geometry n.
+            } else if node.tag_name().name() == "FITSKeyword" {
+                // Parse and store the values of the FITS keyword
+                let mut xisf_fits_keyword = fitswriter::FITSKeyword {
+                    name: "".to_string(),
+                    value: "".to_string(),
+                    comment: "".to_string(),
+                };
+                for attr in node.attributes() {
+                    if attr.name() == "name" {
+                        xisf_fits_keyword.name = attr.value().to_string();
+                    } else if attr.name() == "value" {
+                        xisf_fits_keyword.value = attr.value().to_string();
+                    } else if attr.name() == "comment" {
+                        xisf_fits_keyword.comment = attr.value().to_string();
+                    }
+                }
+                println!("FITS Keyword: {} = {} / {}", xisf_fits_keyword.name, xisf_fits_keyword.value, xisf_fits_keyword.comment);
+                xisf_fits_keywords.push(xisf_fits_keyword);
             }
         }
     }
@@ -340,7 +360,11 @@ fn main() -> io::Result<()> {
             comment: vec!["".to_string()],
             data_bytes: data_bytes,
         };
-        fitswriter::fits_write(fits_filename, &fits_hd)?;
+        if xisf_fits_keywords.len() > 0 {
+            fitswriter::fits_write_data_keywords(fits_filename, &fits_hd, &xisf_fits_keywords)?;
+        } else {
+            fitswriter::fits_write_data(fits_filename, &fits_hd)?;
+        }
     }
     // -- End of convert XISF to FITS
 
