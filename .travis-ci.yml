@@ -1,5 +1,5 @@
 language: rust
 rust:
     - stable
-os: linux
+os: windows
 
