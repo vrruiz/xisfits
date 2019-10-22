@@ -2,6 +2,7 @@ use std::io::Cursor;
 use byteorder::LittleEndian;
 use byteorder::ReadBytesExt;
 
+#[allow(dead_code)]
 pub fn u8_to_i8(vector: &[u8]) -> Vec<i8> {
     let mut rdr = Cursor::new(vector);
     let mut values = Vec::new();
@@ -18,6 +19,7 @@ pub fn u8_to_i8(vector: &[u8]) -> Vec<i8> {
 
 macro_rules! u8_to_t {
     ($func_name:ident, $read_func:ident, $type:ty) => {
+        #[allow(dead_code)]
         pub fn $func_name(vector: &[u8]) -> Vec<$type> {
             let mut rdr = Cursor::new(vector);
             let mut values = Vec::new();
@@ -47,10 +49,11 @@ u8_to_t!(u8_to_v_f64, read_f64, f64);
 
 macro_rules! t_to_u8_be {
     ($func_name:ident, $type:ty) => {
-        pub fn $func_name(vector: &Vec<$type>) -> Vec<u8> {
+        #[allow(dead_code)]
+        pub fn $func_name(vector: &[$type]) -> Vec<u8> {
             let mut values = Vec::new();
-            for i in 0..vector.len() {
-                let bytes = vector[i].to_be_bytes();
+            for value in vector {
+                let bytes = value.to_be_bytes();
                 for n in 0..bytes.len() {
                     values.push(bytes[n]);
                 }
@@ -71,10 +74,11 @@ t_to_u8_be!(i128_to_v_u8_be, i128);
 t_to_u8_be!(u128_to_v_u8_be, u128);
 
 // From u16 to i16 to Vec<u8> (Big Endian)
-pub fn u16_to_i16_to_v_u8_be(v: &Vec<u16>) -> Vec<u8> {
+#[allow(dead_code)]
+pub fn u16_to_i16_to_v_u8_be(v: &[u16]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
-    for i in 0..v.len() {
-        let mut v_u = v[i];
+    for integer in v {
+        let mut v_u = *integer;
         if v_u > i16::max_value() as u16 {
             v_u = i16::max_value() as u16;
         }
@@ -85,10 +89,11 @@ pub fn u16_to_i16_to_v_u8_be(v: &Vec<u16>) -> Vec<u8> {
 }
 
 // From u32 to i32 to Vec<u8> (Big Endian)
-pub fn u32_to_i32_to_v_u8_be(v: &Vec<u32>) -> Vec<u8> {
+#[allow(dead_code)]
+pub fn u32_to_i32_to_v_u8_be(v: &[u32]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
-    for i in 0..v.len() {
-        let mut v_u = v[i];
+    for integer in v {
+        let mut v_u = *integer;
         if v_u > i32::max_value() as u32 {
             v_u = i32::max_value() as u32;
         }
@@ -99,20 +104,22 @@ pub fn u32_to_i32_to_v_u8_be(v: &Vec<u32>) -> Vec<u8> {
 }
 
 // From f32 to Vec<u8> (Big Endian)
-pub fn f32_to_v_u8_be(v: &Vec<f32>) -> Vec<u8> {
+#[allow(dead_code)]
+pub fn f32_to_v_u8_be(v: &[f32]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
-    for i in 0..v.len() {
-        let mut value = v[i].to_bits().to_be_bytes().to_vec();
+    for float in v {
+        let mut value = float.to_bits().to_be_bytes().to_vec();
         result.append(&mut value);
     }
     result
 }
 
 // From f64 to Vec<u8> (Big Endian)
-pub fn f64_to_v_u8_be(v: &Vec<f64>) -> Vec<u8> {
+#[allow(dead_code)]
+pub fn f64_to_v_u8_be(v: &[f64]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
-    for i in 0..v.len() {
-        let mut value = v[i].to_bits().to_be_bytes().to_vec();
+    for float in v {
+        let mut value = float.to_bits().to_be_bytes().to_vec();
         result.append(&mut value);
     }
     result

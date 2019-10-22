@@ -33,17 +33,16 @@ struct XISFHeader {
 
 // Struct to store image data as vector
 struct XISFData {
-    format:  String,
-    int8:    Vec<Vec<i8>>,
+    // int8:    Vec<Vec<i8>>,
     uint8:   Vec<Vec<u8>>,
-    int16:   Vec<Vec<i16>>,
+    // int16:   Vec<Vec<i16>>,
     uint16:  Vec<Vec<u16>>,
-    int32:   Vec<Vec<i32>>,
+    // int32:   Vec<Vec<i32>>,
     uint32:  Vec<Vec<u32>>,
-    int64:   Vec<Vec<i64>>,
-    uint64:  Vec<Vec<u64>>,
-    int128:  Vec<Vec<i128>>,
-    uint128: Vec<Vec<u128>>,
+    // int64:   Vec<Vec<i64>>,
+    // uint64:  Vec<Vec<u64>>,
+    // int128:  Vec<Vec<i128>>,
+    // uint128: Vec<Vec<u128>>,
     float32: Vec<Vec<f32>>,
     float64: Vec<Vec<f64>>,
 }
@@ -69,17 +68,17 @@ fn main() -> io::Result<()> {
     };
 
     let mut xisf_data = XISFData {
-        format:  "".to_string(),
-        int8:    vec![],
+        // format:  String::from(""),
+        // int8:    vec![],
         uint8:   vec![],
-        int16:   vec![],
+        // int16:   vec![],
         uint16:  vec![],
-        int32:   vec![],
+        // int32:   vec![],
         uint32:  vec![],
-        int64:   vec![],
-        uint64:  vec![],
-        int128:  vec![],
-        uint128: vec![],
+        // int64:   vec![],
+        // uint64:  vec![],
+        // int128:  vec![],
+        // uint128: vec![],
         float32: vec![],
         float64: vec![],
     };
@@ -133,7 +132,7 @@ fn main() -> io::Result<()> {
     f.read_exact(&mut buffer_header_reserved)?;
 
     // Header: XML section
-    let mut handle = f.by_ref().take(convert::u8_to_v_u32(&buffer_header_length)[0] as u64);
+    let mut handle = f.by_ref().take(u64::from(convert::u8_to_v_u32(&buffer_header_length)[0]));
     handle.read_to_string(&mut buffer_header_header)?;
 
     // Assign header values to XISF header struct
@@ -173,19 +172,19 @@ fn main() -> io::Result<()> {
                     if attr.name() == "geometry" {
                         xisf_header.geometry = attr.value().to_string();
                         // Parse geometry string (size_x:size_y:n)
-                        let geometry_data: Vec<&str> = xisf_header.geometry.split(":").collect();
+                        let geometry_data: Vec<&str> = xisf_header.geometry.split(':').collect();
                         if geometry_data.len() > 1 {
                             let mut channel_size = 0;
-                            for i in 0..geometry_data.len() - 1 {
-                                let size = geometry_data[i].parse::<u64>().unwrap();
+                            for g_data in geometry_data.iter() {
+                                let size = g_data.parse::<u64>().unwrap();
                                 if channel_size == 0 {
                                     channel_size = size;
                                 } else {
-                                    channel_size = channel_size * size;
+                                    channel_size *= size;
                                 }
                                 xisf_header.geometry_sizes.push(size);
                             }
-                            xisf_header.geometry_channel_size = channel_size.into();
+                            xisf_header.geometry_channel_size = channel_size;
                             xisf_header.geometry_channels = geometry_data[geometry_data.len() - 1].parse::<u64>().unwrap();
                         }
                     } else if attr.name() == "sampleFormat" {
@@ -198,9 +197,8 @@ fn main() -> io::Result<()> {
                     } else if attr.name() == "location" {
                         // Parse location. Format: "chan_size1:..:chan_size_n:n_channels" format
                         xisf_header.location = attr.value().to_string();
-                        let split = xisf_header.location.split(":");
-                        let mut n = 0;
-                        for s in split {
+                        let split = xisf_header.location.split(':');
+                        for (n,s) in split.enumerate() {
                             println!("Location part: {}", s);
                             if n == 0 {
                                 xisf_header.location_method = s.to_string();
@@ -209,7 +207,6 @@ fn main() -> io::Result<()> {
                             } else if n == 2 {
                                 xisf_header.location_length = s.parse().unwrap();
                             }
-                            n += 1;
                         }
                     }
                 }
@@ -237,7 +234,7 @@ fn main() -> io::Result<()> {
     }
     // Calculate the size in bytes of the image 
     if xisf_header.sample_format_bytes > 0 {
-        xisf_header.geometry_channel_size = xisf_header.geometry_channel_size * xisf_header.sample_format_bytes as u64;
+        xisf_header.geometry_channel_size *= u64::from(xisf_header.sample_format_bytes);
     }
     // -- End of parse XML Header
 
@@ -269,7 +266,7 @@ fn main() -> io::Result<()> {
         for n in 0..xisf_header.geometry_channels {
             let mut image_channel = Vec::new();
             // Read channel size bytes
-            match f.by_ref().take(xisf_header.geometry_channel_size.into()).read_to_end(&mut image_channel) {
+            match f.by_ref().take(xisf_header.geometry_channel_size).read_to_end(&mut image_channel) {
                 Ok(v) => println!("Read XISF > Data correctly read (channel {}): {:?}", n, v),
                 Err(r) => println!("Read XISF > Error reading image (channel {}): {:?}", n, r)
             };
@@ -286,10 +283,10 @@ fn main() -> io::Result<()> {
 
             // Show the first 20 bytes of the original image data
             if image_channel.len() >= 20 {
-                for i in 0..20 {
-                    print!("{:x} ", image_channel[i]);
+                for byte in image_channel.iter().take(20) {
+                    print!("{:x} ", byte);
                 }
-                println!("");
+                println!();
             }
         }
     }
@@ -339,8 +336,8 @@ fn main() -> io::Result<()> {
 
     // Show the first 20 bytes of the converted image
     if data_bytes.len() > 20 {
-        for p in 0..20 {
-            print!("{:x} ", data_bytes[p]);
+        for byte in data_bytes.iter().take(20) {
+            print!("{:x} ", byte);
         }
         println!();
     }
@@ -349,7 +346,7 @@ fn main() -> io::Result<()> {
     if bitpix != 0 {
         println!("Convert to FITS > Write image data");
         let fits_hd = fitswriter::FitsHeaderData {
-            bitpix: bitpix,
+            bitpix,
             naxis: xisf_header.geometry_sizes.len() as u64,
             naxis_vec: xisf_header.geometry_sizes,
             bzero: 0,
@@ -358,9 +355,9 @@ fn main() -> io::Result<()> {
             datamax: 0,
             history: vec!["".to_string()],
             comment: vec!["".to_string()],
-            data_bytes: data_bytes,
+            data_bytes,
         };
-        if xisf_fits_keywords.len() > 0 {
+        if !xisf_fits_keywords.is_empty() {
             fitswriter::fits_write_data_keywords(fits_filename, &fits_hd, &xisf_fits_keywords)?;
         } else {
             fitswriter::fits_write_data(fits_filename, &fits_hd)?;
