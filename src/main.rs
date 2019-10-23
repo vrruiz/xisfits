@@ -50,19 +50,19 @@ struct XISFData {
 fn main() -> io::Result<()> {
     // Define variables
     let mut xisf_header = XISFHeader {
-        signature: "".to_string(),
+        signature: String::from(""),
         length: 0,
         reserved: 0,
-        header: "".to_string(),
-        geometry: "".to_string(),
+        header: String::from(""),
+        geometry: String::from(""),
         geometry_channels: 0,
         geometry_sizes: vec![],
         geometry_channel_size: 0,
-        sample_format: "".to_string(),
+        sample_format: String::from(""),
         sample_format_bytes: 0,
-        color_space: "".to_string(),
-        location: "".to_string(),
-        location_method: "".to_string(),
+        color_space: String::from(""),
+        location: String::from(""),
+        location_method: String::from(""),
         location_start: 0,
         location_length: 0,
     };
@@ -214,9 +214,9 @@ fn main() -> io::Result<()> {
             } else if node.tag_name().name() == "FITSKeyword" {
                 // Parse and store the values of the FITS keyword
                 let mut xisf_fits_keyword = fitswriter::FITSKeyword {
-                    name: "".to_string(),
-                    value: "".to_string(),
-                    comment: "".to_string(),
+                    name: String::from(""),
+                    value: String::from(""),
+                    comment: String::from(""),
                 };
                 for attr in node.attributes() {
                     if attr.name() == "name" {
@@ -353,8 +353,8 @@ fn main() -> io::Result<()> {
             bscale: 1,
             datamin: 0,
             datamax: 0,
-            history: vec!["".to_string()],
-            comment: vec!["".to_string()],
+            history: vec![String::from("")],
+            comment: vec![String::from("")],
             data_bytes,
         };
         if !xisf_fits_keywords.is_empty() {
