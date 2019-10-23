@@ -8,7 +8,9 @@ XISFITS is programmed in [Rust](http://rust-lang.org/) language and doesn't depe
 
 ```bash
 $ cargo build xisfits
-```# XISFITS
+```
+
+# XISFITS
 
 XISFITS is a command line tool to convert PixInsight images ([XISF](http://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html)) to [FITS](https://fits.gsfc.nasa.gov/fits_standard.html).
 
