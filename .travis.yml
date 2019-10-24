@@ -1,7 +1,6 @@
 language: rust
 cache:
   cargo: true
-  timeout: 500
 dist: bionic
 sudo: true
 
