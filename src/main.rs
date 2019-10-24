@@ -65,32 +65,53 @@ struct XISFData {
     float64: Vec<Vec<f64>>,
 }
 
-#[allow(clippy::cognitive_complexity)]
+/// Gets the size of the XISF type, in bytes.
+fn xisf_type_size(xisf_type: &str) -> u8 {
+    match xisf_type {
+        "Int8" | "UInt8" => 1,
+        "Int16" | "UInt16" => 2,
+        "Int32" | "UInt32" | "Float32" => 4,
+        "Int64" | "UInt64" | "Float64" => 8,
+        "Int128" | "UInt128" | "Float128" => 16,
+        _ => unreachable!(),
+    }
+}
+
 fn main() -> io::Result<()> {
     // Define variables
-    let mut xisf_header = XISFHeader::default();
-    let mut xisf_data = XISFData::default();
+    let mut xisf_header = XISFHeader {
+        signature: String::from(""),
+        length: 0,
+        reserved: 0,
+        header: String::from(""),
+        geometry: String::from(""),
+        geometry_channels: 0,
+        geometry_sizes: vec![],
+        geometry_channel_size: 0,
+        sample_format: String::from(""),
+        sample_format_bytes: 0,
+        color_space: String::from(""),
+        location: String::from(""),
+        location_method: String::from(""),
+        location_start: 0,
+        location_length: 0,
+    };
 
-    // Fundamental Scalar Types
-    let xisf_type_size: HashMap<&str, u8> = [
-        ("Int8", 1),
-        ("UInt8", 1),
-        ("Int16", 2),
-        ("UInt16", 2),
-        ("Int32", 4),
-        ("UInt32", 4),
-        ("Int32", 4),
-        ("Int64", 8),
-        ("UInt64", 8),
-        ("Int128", 16),
-        ("UInt128", 16),
-        ("Float32", 4),
-        ("Float64", 8),
-        ("Float128", 16),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    let mut xisf_data = XISFData {
+        // format:  String::from(""),
+        // int8:    vec![],
+        uint8: vec![],
+        // int16:   vec![],
+        uint16: vec![],
+        // int32:   vec![],
+        uint32: vec![],
+        // int64:   vec![],
+        // uint64:  vec![],
+        // int128:  vec![],
+        // uint128: vec![],
+        float32: vec![],
+        float64: vec![],
+    };
 
     let mut xisf_fits_keywords = Vec::new();
 
@@ -193,7 +214,7 @@ fn main() -> io::Result<()> {
                         // Parse image format
                         xisf_header.sample_format = attr.value().to_string();
                         xisf_header.sample_format_bytes =
-                            xisf_type_size[xisf_header.sample_format.as_str()];
+                            xisf_type_size(&xisf_header.sample_format);
                     } else if attr.name() == "colorSpace" {
                         // Parse space color
                         xisf_header.color_space = attr.value().to_string();
@@ -377,8 +398,8 @@ fn main() -> io::Result<()> {
             bscale: 1,
             datamin: 0,
             datamax: 0,
-            history: vec![String::from("")],
-            comment: vec![String::from("")],
+            history: vec![String::new()],
+            comment: vec![String::new()],
             data_bytes,
         };
         if xisf_fits_keywords.is_empty() {
