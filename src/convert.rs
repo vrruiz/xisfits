@@ -1,6 +1,5 @@
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Cursor;
-use byteorder::LittleEndian;
-use byteorder::ReadBytesExt;
 
 #[allow(dead_code)]
 pub fn u8_to_i8(vector: &[u8]) -> Vec<i8> {
@@ -73,8 +72,8 @@ t_to_u8_be!(i64_to_v_u8_be, i64);
 t_to_u8_be!(i128_to_v_u8_be, i128);
 t_to_u8_be!(u128_to_v_u8_be, u128);
 
-// From u16 to i16 to Vec<u8> (Big Endian)
-#[allow(dead_code)]
+/// From u16 to i16 to Vec<u8> (Big Endian)
+#[allow(clippy::cast_possible_wrap)]
 pub fn u16_to_i16_to_v_u8_be(v: &[u16]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for integer in v {
@@ -88,8 +87,8 @@ pub fn u16_to_i16_to_v_u8_be(v: &[u16]) -> Vec<u8> {
     result
 }
 
-// From u32 to i32 to Vec<u8> (Big Endian)
-#[allow(dead_code)]
+/// From u32 to i32 to Vec<u8> (Big Endian)
+#[allow(clippy::cast_possible_wrap)]
 pub fn u32_to_i32_to_v_u8_be(v: &[u32]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for integer in v {
@@ -103,8 +102,7 @@ pub fn u32_to_i32_to_v_u8_be(v: &[u32]) -> Vec<u8> {
     result
 }
 
-// From f32 to Vec<u8> (Big Endian)
-#[allow(dead_code)]
+/// From f32 to Vec<u8> (Big Endian)
 pub fn f32_to_v_u8_be(v: &[f32]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for float in v {
@@ -114,8 +112,7 @@ pub fn f32_to_v_u8_be(v: &[f32]) -> Vec<u8> {
     result
 }
 
-// From f64 to Vec<u8> (Big Endian)
-#[allow(dead_code)]
+/// From f64 to Vec<u8> (Big Endian)
 pub fn f64_to_v_u8_be(v: &[f64]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     for float in v {
