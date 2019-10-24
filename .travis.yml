@@ -1,0 +1,57 @@
+language: rust
+cache:
+  cargo: true
+dist: bionic
+sudo: true
+
+# Run builds in Linux, MacOS X and Windows
+os:
+- linux
+- osx
+- windows
+
+# Run builds for all the supported trains
+rust:
+- 1.32.0
+- stable
+- beta
+- nightly
+
+stages:
+- test
+# - deploy
+
+# Extra jobs to include
+# jobs:
+#   include:
+#   # Upload documentation
+#   - name: "Documentation upload"
+#     os: linux
+#     rust: stable
+#     stage: deploy
+#     env: CACHE_NAME=DOCS
+#     script: ./travis-helper.sh documentation
+#     deploy: &pages
+#       provider: pages
+#       github-token: $GH_TOKEN
+#       local-dir: target/doc/
+#       skip_cleanup: true
+#       keep-history: true
+#       on:
+#         repo: vrruiz/xisfits
+#         branch: develop
+
+# Run the multiple tests.
+script:
+- ./travis-helper.sh fmt_check
+- ./travis-helper.sh clippy_check
+- ./travis-helper.sh test
+
+# Upload code coverage report
+# after_success:
+# - ./travis-helper.sh upload_code_coverage
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always

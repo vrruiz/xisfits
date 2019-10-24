@@ -1,17 +1,35 @@
-extern crate roxmltree;
+//! XISFITS is a command line tool to convert XISF images to FITS.
+
+#![forbid(anonymous_parameters)]
+#![warn(clippy::pedantic)]
+#![deny(
+    clippy::all,
+    variant_size_differences,
+    unused_results,
+    unused_qualifications,
+    unused_import_braces,
+    unsafe_code,
+    trivial_numeric_casts,
+    trivial_casts,
+    missing_docs,
+    unused_extern_crates,
+    missing_debug_implementations,
+    missing_copy_implementations
+)]
 
 mod convert;
 mod fitswriter;
 
-use std::env;
-use std::fs::File;
-use std::io;
-use std::io::Read;
-use std::io::Seek;
-use std::io::SeekFrom;
-use std::process;
+use std::{
+    collections::HashMap,
+    env,
+    fs::File,
+    io::{self, Read, Seek, SeekFrom},
+    process,
+};
 
 // Struct to store XISF header data
+#[derive(Debug, Default)]
 struct XISFHeader {
     signature: String,
     length: u32,
@@ -31,6 +49,7 @@ struct XISFHeader {
 }
 
 // Struct to store image data as vector
+#[derive(Debug, Default)]
 struct XISFData {
     // int8:    Vec<Vec<i8>>,
     uint8: Vec<Vec<u8>>,
@@ -94,24 +113,6 @@ fn main() -> io::Result<()> {
         float64: vec![],
     };
 
-    // Fundamental Scalar Types
-    // let xisf_type_size: HashMap<&str, u8> =
-    //     [("Int8", 1),
-    //      ("UInt8", 1),
-    //      ("Int16", 2),
-    //      ("UInt16", 2),
-    //      ("Int32", 4),
-    //      ("UInt32", 4),
-    //      ("Int32", 4),
-    //      ("Int64", 8),
-    //      ("UInt64", 8),
-    //      ("Int128", 16),
-    //      ("UInt128", 16),
-    //      ("Float32", 4),
-    //      ("Float64", 8),
-    //      ("Float128", 16),
-    //     ].iter().cloned().collect();
-
     let mut xisf_fits_keywords = Vec::new();
 
     let mut buffer_header_signature = String::new();
@@ -135,7 +136,8 @@ fn main() -> io::Result<()> {
 
     // -- Read header fields
     // Header: Signature
-    f.by_ref()
+    let _ = f
+        .by_ref()
         .take(8)
         .read_to_string(&mut buffer_header_signature)?;
     // Header: Length of XML section
@@ -147,7 +149,7 @@ fn main() -> io::Result<()> {
     let mut handle = f
         .by_ref()
         .take(u64::from(convert::u8_to_v_u32(&buffer_header_length)[0]));
-    handle.read_to_string(&mut buffer_header_header)?;
+    let _ = handle.read_to_string(&mut buffer_header_header)?;
 
     // Assign header values to XISF header struct
     xisf_header.signature = buffer_header_signature.clone();
@@ -194,7 +196,7 @@ fn main() -> io::Result<()> {
                         let geometry_data: Vec<&str> = xisf_header.geometry.split(':').collect();
                         if geometry_data.len() > 1 {
                             let mut channel_size = 0;
-                            for g_data in geometry_data.iter() {
+                            for g_data in &geometry_data {
                                 let size = g_data.parse::<u64>().unwrap();
                                 if channel_size == 0 {
                                     channel_size = size;
@@ -334,8 +336,8 @@ fn main() -> io::Result<()> {
 
     // -- Convert XISF to FITS
     println!("Convert to FITS > Image data to bytes");
-    let mut data_bytes: Vec<u8> = vec![];
-    let mut bitpix: i64 = 0;
+    let mut data_bytes = vec![];
+    let mut bitpix = 0_i64;
     // Convert binary formats
     //
     // +---------+-------+------+
@@ -400,10 +402,10 @@ fn main() -> io::Result<()> {
             comment: vec![String::new()],
             data_bytes,
         };
-        if !xisf_fits_keywords.is_empty() {
-            fitswriter::fits_write_data_keywords(fits_filename, &fits_hd, &xisf_fits_keywords)?;
-        } else {
+        if xisf_fits_keywords.is_empty() {
             fitswriter::fits_write_data(fits_filename, &fits_hd)?;
+        } else {
+            fitswriter::fits_write_data_keywords(fits_filename, &fits_hd, &xisf_fits_keywords)?;
         }
     }
     // -- End of convert XISF to FITS
