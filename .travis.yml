@@ -46,7 +46,6 @@ script:
 - ./travis-helper.sh fmt_check
 - ./travis-helper.sh clippy_check
 - ./travis-helper.sh test
-- ./travis-helper.sh test_ignored
 
 # Upload code coverage report
 # after_success:
