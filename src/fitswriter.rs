@@ -1,6 +1,7 @@
-use std::fs::File;
-use std::io;
-use std::io::Write;
+use std::{
+    fs::File,
+    io::{self, Write},
+};
 
 pub struct FitsHeaderData {
     pub bitpix: i64,
@@ -17,8 +18,8 @@ pub struct FitsHeaderData {
 
 // Struct to store FITS keywords
 pub struct FITSKeyword {
-    pub name:    String,
-    pub value:   String,
+    pub name: String,
+    pub value: String,
     pub comment: String,
 }
 
@@ -33,22 +34,45 @@ fn fits_write_header(fits: &mut File, string: &str, bytes: &mut u64) -> io::Resu
     Ok(())
 }
 
-fn fits_write_header_u64(fits: &mut File, header: &str, value: u64, comment: &str, bytes: &mut u64) -> io::Result<()> {
+fn fits_write_header_u64(
+    fits: &mut File,
+    header: &str,
+    value: u64,
+    comment: &str,
+    bytes: &mut u64,
+) -> io::Result<()> {
     let string = format!("{:8} = {:<19} / {:47}", header, value, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_i64(fits: &mut File, header: &str, value: i64, comment: &str, bytes: &mut u64) -> io::Result<()> {
+fn fits_write_header_i64(
+    fits: &mut File,
+    header: &str,
+    value: i64,
+    comment: &str,
+    bytes: &mut u64,
+) -> io::Result<()> {
     let string = format!("{:8} = {:<19} / {:47}", header, value, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_string(fits: &mut File, header: &str, value: &str, comment: &str, bytes: &mut u64) -> io::Result<()> {
+fn fits_write_header_string(
+    fits: &mut File,
+    header: &str,
+    value: &str,
+    comment: &str,
+    bytes: &mut u64,
+) -> io::Result<()> {
     let string = format!("{:8} = {:<19} / {:48}", header, value, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_comment(fits: &mut File, header: &str, comment: &str, bytes: &mut u64) -> io::Result<()> {
+fn fits_write_header_comment(
+    fits: &mut File,
+    header: &str,
+    comment: &str,
+    bytes: &mut u64,
+) -> io::Result<()> {
     let string = format!("{:8}{:72}", header, comment);
     fits_write_header(fits, &string, bytes)
 }
@@ -60,9 +84,9 @@ fn fits_write_header_no_comment(fits: &mut File, header: &str, bytes: &mut u64) 
 
 fn fits_write_image_data(fits: &mut File, fits_hd: &FitsHeaderData, bytes: u64) -> io::Result<()> {
     // Write HDU (fill the rest of the 2880 byte-block)
-    let rest = bytes % 2880;
-    if rest > 0 {
-        let rest = 2880 - rest;
+    let hdu_rest = bytes % 2880;
+    if hdu_rest > 0 {
+        let rest = 2880 - hdu_rest;
         for _i in 0..rest {
             fits.write_all(b" ")?;
         }
@@ -72,11 +96,11 @@ fn fits_write_image_data(fits: &mut File, fits_hd: &FitsHeaderData, bytes: u64) 
     println!("FITS write > Write image data");
     fits.write_all(&fits_hd.data_bytes)?;
     let total = fits_hd.data_bytes.len() as u64;
-    let rest = total % 2880;
+    let data_unit_rest = total % 2880;
     println!("FITS write > Write image data > Bytes total: {}", total);
     // Write Data Unit (fill the rest of the 2880 byte-block)
-    if rest > 0 {
-        let rest = 2880 - rest;
+    if data_unit_rest > 0 {
+        let rest = 2880 - data_unit_rest;
         for _i in 0..rest {
             fits.write_all(&[0])?;
         }
@@ -96,8 +120,14 @@ pub fn fits_write_data(filename: &str, fits_hd: &FitsHeaderData) -> io::Result<(
     fits_write_header_i64(&mut fits, "BITPIX", fits_hd.bitpix, "", &mut bytes)?;
     fits_write_header_u64(&mut fits, "NAXIS", fits_hd.naxis, "", &mut bytes)?;
     for i in 0..fits_hd.naxis_vec.len() {
-        let header_name = format!("NAXIS{}", i+1);
-        fits_write_header_u64(&mut fits, &header_name, fits_hd.naxis_vec[i], "", &mut bytes)?;
+        let header_name = format!("NAXIS{}", i + 1);
+        fits_write_header_u64(
+            &mut fits,
+            &header_name,
+            fits_hd.naxis_vec[i],
+            "",
+            &mut bytes,
+        )?;
     }
     fits_write_header_string(&mut fits, "EXTEND", "T", "", &mut bytes)?;
     fits_write_header_string(&mut fits, "BZERO", "0", "", &mut bytes)?;
@@ -122,7 +152,11 @@ pub fn fits_write_data(filename: &str, fits_hd: &FitsHeaderData) -> io::Result<(
 }
 
 // Write FITS data, but use FITS keywords for the header
-pub fn fits_write_data_keywords(filename: &str, fits_hd: &FitsHeaderData, fits_keywords: &[FITSKeyword]) -> io::Result<()> {
+pub fn fits_write_data_keywords(
+    filename: &str,
+    fits_hd: &FitsHeaderData,
+    fits_keywords: &[FITSKeyword],
+) -> io::Result<()> {
     println!("FITS write > File name > {}", filename);
     let mut fits = File::create(filename)?;
     let mut bytes = 0;
@@ -133,7 +167,13 @@ pub fn fits_write_data_keywords(filename: &str, fits_hd: &FitsHeaderData, fits_k
         if keyword.name == "HISTORY" || keyword.name == "COMMENT" {
             fits_write_header_comment(&mut fits, &keyword.name, &keyword.comment, &mut bytes)?;
         } else {
-            fits_write_header_string(&mut fits, &keyword.name, &keyword.value, &keyword.comment, &mut bytes)?;
+            fits_write_header_string(
+                &mut fits,
+                &keyword.name,
+                &keyword.value,
+                &keyword.comment,
+                &mut bytes,
+            )?;
         }
     }
     fits_write_header_no_comment(&mut fits, "END", &mut bytes)?;
