@@ -3,7 +3,7 @@ use crate::fitswriter::FITSKeyword;
 
 use std::{
     fs::File,
-    io::{self, Read, Seek, SeekFrom},
+    io::{self, BufReader, Read, Seek, SeekFrom},
     process,
 };
 
@@ -188,8 +188,9 @@ pub fn xisf_read_file(
     let mut buffer_header_header = String::new();
 
     // Open XISF image file
-    let mut f = File::open(xisf_filename)?;
+    let f = File::open(xisf_filename)?;
     let file_size = f.metadata().unwrap().len();
+    let mut f = BufReader::new(f);
     println!("File size: {}", file_size);
 
     // -- Read header fields
