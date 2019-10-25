@@ -125,17 +125,12 @@ fn xisf_parse_xml(
                             } else if n == 1 {
                                 xisf_header.location_start = s.parse().unwrap();
                             } else if n == 2 {
+                                // location_length = image data size (compressed)
                                 xisf_header.location_length = s.parse().unwrap();
                             }
                         }
-                    }
-                }
-            // NOTE: location_length == geometry x * geometry y * ... * geometry n.
-            } else if node.tag_name().name() == "Data" {
-                for attr in node.attributes() {
-                    if attr.name() == "compression" {
+                    } else if attr.name() == "compression" {
                         // Parse compression. Format: "compression_algorithm:uncompressed-size"
-                        println!("COMPRESSION {}", attr.value());
                         xisf_header.compression = attr.value().to_string();
                         let split = xisf_header.compression.split(':');
                         for (n, s) in split.enumerate() {
