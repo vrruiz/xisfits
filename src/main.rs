@@ -95,6 +95,9 @@ fn main() -> io::Result<()> {
         location_method: String::from(""),
         location_start: 0,
         location_length: 0,
+        compression: String::from(""),
+        compression_codec: String::from(""),
+        compression_size: 0,
     };
 
     let mut xisf_data = xisfreader::XISFData {

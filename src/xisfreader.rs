@@ -25,6 +25,9 @@ pub struct XISFHeader {
     pub location_method: String,
     pub location_start: u64,
     pub location_length: u64,
+    pub compression: String,
+    pub compression_codec: String,
+    pub compression_size: u64,
 }
 
 // Struct to store image data as vector
@@ -84,8 +87,8 @@ fn xisf_parse_xml(
                         attr.value()
                     );
                     if attr.name() == "geometry" {
-                        xisf_header.geometry = attr.value().to_string();
                         // Parse geometry string (size_x:size_y:n)
+                        xisf_header.geometry = String::from(attr.value());
                         let geometry_data: Vec<&str> = xisf_header.geometry.split(':').collect();
                         if geometry_data.len() > 1 {
                             let mut channel_size = 0;
@@ -128,6 +131,22 @@ fn xisf_parse_xml(
                     }
                 }
             // NOTE: location_length == geometry x * geometry y * ... * geometry n.
+            } else if node.tag_name().name() == "Data" {
+                for attr in node.attributes() {
+                    if attr.name() == "compression" {
+                        // Parse compression. Format: "compression_algorithm:uncompressed-size"
+                        println!("COMPRESSION {}", attr.value());
+                        xisf_header.compression = attr.value().to_string();
+                        let split = xisf_header.compression.split(':');
+                        for (n, s) in split.enumerate() {
+                            match n {
+                                0 => xisf_header.compression_codec = s.to_string(),
+                                1 => xisf_header.compression_size = s.parse().unwrap(),
+                                _ => (),
+                            }
+                        }
+                    }
+                }
             } else if node.tag_name().name() == "FITSKeyword" {
                 // Parse and store the values of the FITS keyword
                 let mut xisf_fits_keyword = FITSKeyword {
@@ -156,27 +175,6 @@ fn xisf_parse_xml(
     if xisf_header.sample_format_bytes > 0 {
         xisf_header.geometry_channel_size *= u64::from(xisf_header.sample_format_bytes);
     }
-
-    // Output parsed data
-    println!("Geometry: {}", xisf_header.geometry);
-    println!("Geometry sizes: {:?}", xisf_header.geometry_sizes);
-    println!("Geometry channels: {}", xisf_header.geometry_channels);
-    println!(
-        "Geometry channel size: {}",
-        xisf_header.geometry_channel_size
-    );
-    println!("Sample format: {}", xisf_header.sample_format);
-    println!("Sample format: {}", xisf_header.sample_format_bytes);
-    println!("Color space: {}", xisf_header.color_space);
-    println!("Location: {}", xisf_header.location);
-    println!("Location method: {}", xisf_header.location_method);
-    println!("Location start: {}", xisf_header.location_start);
-    println!("Location length: {}", xisf_header.location_length);
-    println!(
-        "Location length ({}) == channel size * channels ({})",
-        xisf_header.location_length,
-        xisf_header.geometry_channel_size * u64::from(xisf_header.geometry_channels)
-    );
 
     Ok(())
 }
@@ -235,7 +233,39 @@ pub fn xisf_read_file(
     // Parse XML Header section
     xisf_parse_xml(xisf_header, xisf_fits_keywords)?;
 
-    // -- Read image data from file
+    // Output parsed data
+    println!("Geometry: {}", xisf_header.geometry);
+    println!("Geometry sizes: {:?}", xisf_header.geometry_sizes);
+    println!("Geometry channels: {}", xisf_header.geometry_channels);
+    println!(
+        "Geometry channel size: {}",
+        xisf_header.geometry_channel_size
+    );
+    println!("Sample format: {}", xisf_header.sample_format);
+    println!("Sample format: {}", xisf_header.sample_format_bytes);
+    println!("Color space: {}", xisf_header.color_space);
+    println!("Location: {}", xisf_header.location);
+    println!("Location method: {}", xisf_header.location_method);
+    println!("Location start: {}", xisf_header.location_start);
+    println!("Location length: {}", xisf_header.location_length);
+    println!(
+        "Location length ({}) == channel size * channels ({})",
+        xisf_header.location_length,
+        xisf_header.geometry_channel_size * u64::from(xisf_header.geometry_channels)
+    );
+    println!(
+        "Compression: {} {} {}",
+        xisf_header.compression, xisf_header.compression_codec, xisf_header.compression_size
+    );
+
+    // Stop if data is compressed
+    if xisf_header.compression.is_empty() {
+        println!("Read XISF > Data uncompressed.");
+    } else {
+        println!("Read XISF > Data compressed.");
+        process::exit(1);
+    }
+
     // Interpret it as numbers and store as vector/s
     if xisf_header.location_method == "attachment" && 
         // Goto to file position where the image begins
@@ -246,22 +276,25 @@ pub fn xisf_read_file(
             Err(r) => println!("Read XISF > Error seeking file: {:?}", r),
         }
 
+        let mut image_data = Vec::new();
+        // Read image size bytes
+        match f
+            .by_ref()
+            .take(xisf_header.location_length)
+            .read_to_end(&mut image_data)
+        {
+            Ok(v) => println!("Read XISF > Data correctly read: {:?}", v),
+            Err(r) => println!("Read XISF > Error reading image: {:?}", r),
+        };
+
         // Read each channel
         for n in 0..xisf_header.geometry_channels {
-            let mut image_channel = Vec::new();
-            // Read channel size bytes
-            match f
-                .by_ref()
-                .take(xisf_header.geometry_channel_size)
-                .read_to_end(&mut image_channel)
-            {
-                Ok(v) => println!("Read XISF > Data correctly read (channel {}): {:?}", n, v),
-                Err(r) => println!("Read XISF > Error reading image (channel {}): {:?}", n, r),
-            };
+            let image_channel = &image_data[(xisf_header.geometry_channels * n) as usize
+                ..(xisf_header.geometry_channels * (n + 1) - 1) as usize];
 
             // Convert bytes to actual numbers and store the channel in a vector
             match xisf_header.sample_format.as_str() {
-                "UInt8" => xisf_data.uint8.push(image_channel.clone()),
+                "UInt8" => xisf_data.uint8.push(image_channel.to_vec()),
                 "UInt16" => xisf_data.uint16.push(convert::u8_to_v_u16(&image_channel)),
                 "UInt32" => xisf_data.uint32.push(convert::u8_to_v_u32(&image_channel)),
                 "Float32" => xisf_data.float32.push(convert::u8_to_v_f32(&image_channel)),
@@ -281,6 +314,8 @@ pub fn xisf_read_file(
             }
         }
     }
+
+    // -- End of read image data from file
 
     Ok(())
     // -- End of read image data from file
