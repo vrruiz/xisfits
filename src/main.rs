@@ -21,7 +21,48 @@ mod convert;
 mod fitswriter;
 mod xisfreader;
 
-use std::{env, io, process};
+use lazy_static::lazy_static;
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+#[structopt(about)]
+struct Cli {
+    // Wether to include extra information while doing the conversion in
+    #[structopt(short, long)]
+    verbose: bool,
+    /// Path to the XISF input file.
+    #[structopt(name = "input-file", parse(from_os_str))]
+    input: PathBuf,
+    /// Path to the FITS output file.
+    #[structopt(name = "output-file", parse(from_os_str))]
+    output: PathBuf,
+}
+
+impl Cli {
+    /// Gets wether the program was executed in verbose mode or not.
+    pub fn verbose(&self) -> bool {
+        self.verbose
+    }
+
+    /// Gets the path to the input XISF file.
+    pub fn input(&self) -> &Path {
+        self.input.as_path()
+    }
+
+    /// Gets the path to the output FITS file.
+    pub fn output(&self) -> &Path {
+        self.output.as_path()
+    }
+}
+
+lazy_static! {
+    /// CLI interface information.
+    static ref CLI: Cli = Cli::from_args();
+}
 
 /// Convert XISF binary data to FITS format (Big Endian)
 pub fn xisf_data_to_fits(
@@ -68,12 +109,14 @@ pub fn xisf_data_to_fits(
         }
     }
 
-    // Show the first 20 bytes of the converted image
-    if fits_data.len() > 20 {
-        for byte in fits_data.iter().take(20) {
-            print!("{:x} ", byte);
+    if CLI.verbose() {
+        // Show the first 20 bytes of the converted image
+        if fits_data.len() > 20 {
+            for byte in fits_data.iter().take(20) {
+                print!("{:x} ", byte);
+            }
+            println!();
         }
-        println!();
     }
 }
 
@@ -118,34 +161,27 @@ fn main() -> io::Result<()> {
 
     let mut xisf_fits_keywords = Vec::new();
 
-    // Read command line arguments
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
-        eprintln!("xisfits [input file name].xifs [output file name].fits");
-        process::exit(1);
-    }
-    let xisf_filename = &args[1];
-    let fits_filename = &args[2];
-
-    println!("Args: {:?}", args);
-
     // Open XISF image file
     xisfreader::xisf_read_file(
-        xisf_filename,
+        CLI.input(),
         &mut xisf_header,
         &mut xisf_data,
         &mut xisf_fits_keywords,
     )?;
 
     // -- Convert XISF to FITS
-    println!("Convert to FITS > Image data to bytes");
+    if CLI.verbose() {
+        println!("Convert to FITS > Image data to bytes");
+    }
     let mut fits_data = vec![];
     let mut bitpix = 0_i64;
     xisf_data_to_fits(&xisf_header, &mut xisf_data, &mut fits_data, &mut bitpix);
 
     // Write FITS image to disk
     if bitpix != 0 {
-        println!("Convert to FITS > Write image data");
+        if CLI.verbose() {
+            println!("Convert to FITS > Write image data");
+        }
         let fits_hd = fitswriter::FitsHeaderData {
             bitpix,
             naxis: xisf_header.geometry_sizes.len() as u64,
@@ -159,9 +195,9 @@ fn main() -> io::Result<()> {
             data_bytes: fits_data,
         };
         if xisf_fits_keywords.is_empty() {
-            fitswriter::fits_write_data(fits_filename, &fits_hd)?;
+            fitswriter::fits_write_data(CLI.output(), &fits_hd)?;
         } else {
-            fitswriter::fits_write_data_keywords(fits_filename, &fits_hd, &xisf_fits_keywords)?;
+            fitswriter::fits_write_data_keywords(CLI.output(), &fits_hd, &xisf_fits_keywords)?;
         }
     }
     // -- End of convert XISF to FITS
