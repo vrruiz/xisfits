@@ -79,43 +79,8 @@ pub fn xisf_data_to_fits(
 
 fn main() -> io::Result<()> {
     // Define variables
-    let mut xisf_header = xisfreader::XISFHeader {
-        signature: String::from(""),
-        length: 0,
-        reserved: 0,
-        header: String::from(""),
-        geometry: String::from(""),
-        geometry_channels: 0,
-        geometry_sizes: vec![],
-        geometry_channel_size: 0,
-        sample_format: String::from(""),
-        sample_format_bytes: 0,
-        color_space: String::from(""),
-        location: String::from(""),
-        location_method: String::from(""),
-        location_start: 0,
-        location_length: 0,
-        compression: String::from(""),
-        compression_codec: String::from(""),
-        compression_size: 0,
-    };
-
-    let mut xisf_data = xisfreader::XISFData {
-        // format:  String::from(""),
-        // int8:    vec![],
-        uint8: vec![],
-        // int16:   vec![],
-        uint16: vec![],
-        // int32:   vec![],
-        uint32: vec![],
-        // int64:   vec![],
-        // uint64:  vec![],
-        // int128:  vec![],
-        // uint128: vec![],
-        float32: vec![],
-        float64: vec![],
-    };
-
+    let mut xisf_header = xisfreader::XISFHeader::default();
+    let mut xisf_data = xisfreader::XISFData::default();
     let mut xisf_fits_keywords = Vec::new();
 
     // Read command line arguments
