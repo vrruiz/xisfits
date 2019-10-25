@@ -77,92 +77,105 @@ fn xisf_parse_xml(
     for node in doc.descendants() {
         if node.is_element() {
             println!("<{}>", node.tag_name().name());
-            if node.tag_name().name() == "Image" {
+            match node.tag_name().name() {
                 // Parse and store <Image> tag attributes
-                for attr in node.attributes() {
-                    println!(
-                        "<{} {}=\"{}\">",
-                        node.tag_name().name(),
-                        attr.name(),
-                        attr.value()
-                    );
-                    if attr.name() == "geometry" {
-                        // Parse geometry string (size_x:size_y:n)
-                        xisf_header.geometry = String::from(attr.value());
-                        let geometry_data: Vec<&str> = xisf_header.geometry.split(':').collect();
-                        if geometry_data.len() > 1 {
-                            let mut channel_size = 0;
-                            for g_data in &geometry_data {
-                                let size = g_data.parse::<u64>().unwrap();
-                                if channel_size == 0 {
-                                    channel_size = size;
-                                } else {
-                                    channel_size *= size;
+                "Image" => {
+                    for attr in node.attributes() {
+                        println!(
+                            "<{} {}=\"{}\">",
+                            node.tag_name().name(),
+                            attr.name(),
+                            attr.value()
+                        );
+                        match attr.name() {
+                            "geometry" => {
+                                // Parse geometry string (size_x:size_y:n)
+                                xisf_header.geometry = String::from(attr.value());
+                                let geometry_data: Vec<&str> =
+                                    xisf_header.geometry.split(':').collect();
+                                if geometry_data.len() > 1 {
+                                    let mut channel_size = 0;
+                                    for g_data in &geometry_data {
+                                        let size = g_data.parse::<u64>().unwrap();
+                                        if channel_size == 0 {
+                                            channel_size = size;
+                                        } else {
+                                            channel_size *= size;
+                                        }
+                                        xisf_header.geometry_sizes.push(size);
+                                    }
+                                    xisf_header.geometry_channel_size = channel_size;
+                                    xisf_header.geometry_channels = geometry_data
+                                        [geometry_data.len() - 1]
+                                        .parse::<u32>()
+                                        .unwrap();
                                 }
-                                xisf_header.geometry_sizes.push(size);
                             }
-                            xisf_header.geometry_channel_size = channel_size;
-                            xisf_header.geometry_channels = geometry_data[geometry_data.len() - 1]
-                                .parse::<u32>()
-                                .unwrap();
-                        }
-                    } else if attr.name() == "sampleFormat" {
-                        // Parse image format
-                        xisf_header.sample_format = attr.value().to_string();
-                        xisf_header.sample_format_bytes =
-                            xisf_type_size(&xisf_header.sample_format);
-                    } else if attr.name() == "colorSpace" {
-                        // Parse space color
-                        xisf_header.color_space = attr.value().to_string();
-                    } else if attr.name() == "location" {
-                        // Parse location. Format: "chan_size1:..:chan_size_n:n_channels" format
-                        xisf_header.location = attr.value().to_string();
-                        let split = xisf_header.location.split(':');
-                        for (n, s) in split.enumerate() {
-                            println!("Location part: {}", s);
-                            if n == 0 {
-                                xisf_header.location_method = s.to_string();
-                            } else if n == 1 {
-                                xisf_header.location_start = s.parse().unwrap();
-                            } else if n == 2 {
-                                // location_length = image data size (compressed)
-                                xisf_header.location_length = s.parse().unwrap();
+                            "sampleFormat" => {
+                                // Parse image format
+                                xisf_header.sample_format = attr.value().to_string();
+                                xisf_header.sample_format_bytes =
+                                    xisf_type_size(&xisf_header.sample_format);
                             }
-                        }
-                    } else if attr.name() == "compression" {
-                        // Parse compression. Format: "compression_algorithm:uncompressed-size"
-                        xisf_header.compression = attr.value().to_string();
-                        let split = xisf_header.compression.split(':');
-                        for (n, s) in split.enumerate() {
-                            match n {
-                                0 => xisf_header.compression_codec = s.to_string(),
-                                1 => xisf_header.compression_size = s.parse().unwrap(),
-                                _ => (),
+                            "colorSpace" => {
+                                // Parse space color
+                                xisf_header.color_space = attr.value().to_string();
                             }
+                            "location" => {
+                                // Parse location. Format: "chan_size1:..:chan_size_n:n_channels" format
+                                xisf_header.location = attr.value().to_string();
+                                let split = xisf_header.location.split(':');
+                                for (n, s) in split.enumerate() {
+                                    println!("Location part: {}", s);
+                                    if n == 0 {
+                                        xisf_header.location_method = s.to_string();
+                                    } else if n == 1 {
+                                        xisf_header.location_start = s.parse().unwrap();
+                                    } else if n == 2 {
+                                        // location_length = image data size (compressed)
+                                        xisf_header.location_length = s.parse().unwrap();
+                                    }
+                                }
+                            }
+                            "compression" => {
+                                // Parse compression. Format: "compression_algorithm:uncompressed-size"
+                                xisf_header.compression = attr.value().to_string();
+                                let split = xisf_header.compression.split(':');
+                                for (n, s) in split.enumerate() {
+                                    match n {
+                                        0 => xisf_header.compression_codec = s.to_string(),
+                                        1 => xisf_header.compression_size = s.parse().unwrap(),
+                                        _ => (),
+                                    }
+                                }
+                            }
+                            _ => {} //name => eprintln!("unknown attribute name {}", name),
                         }
                     }
                 }
-            } else if node.tag_name().name() == "FITSKeyword" {
-                // Parse and store the values of the FITS keyword
-                let mut xisf_fits_keyword = FITSKeyword {
-                    name: String::from(""),
-                    value: String::from(""),
-                    comment: String::from(""),
-                };
-                for attr in node.attributes() {
-                    if attr.name() == "name" {
-                        xisf_fits_keyword.name = attr.value().to_string();
-                    } else if attr.name() == "value" {
-                        xisf_fits_keyword.value = attr.value().to_string();
-                    } else if attr.name() == "comment" {
-                        xisf_fits_keyword.comment = attr.value().to_string();
+                "FITSKeyword" => {
+                    // Parse and store the values of the FITS keyword
+                    let mut xisf_fits_keyword = FITSKeyword {
+                        name: String::from(""),
+                        value: String::from(""),
+                        comment: String::from(""),
+                    };
+                    for attr in node.attributes() {
+                        if attr.name() == "name" {
+                            xisf_fits_keyword.name = attr.value().to_string();
+                        } else if attr.name() == "value" {
+                            xisf_fits_keyword.value = attr.value().to_string();
+                        } else if attr.name() == "comment" {
+                            xisf_fits_keyword.comment = attr.value().to_string();
+                        }
                     }
+                    println!(
+                        "FITS Keyword: {} = {} / {}",
+                        xisf_fits_keyword.name, xisf_fits_keyword.value, xisf_fits_keyword.comment
+                    );
+                    xisf_fits_keywords.push(xisf_fits_keyword);
                 }
-                println!(
-                    "FITS Keyword: {} = {} / {}",
-                    xisf_fits_keyword.name, xisf_fits_keyword.value, xisf_fits_keyword.comment
-                );
-                xisf_fits_keywords.push(xisf_fits_keyword);
+                _ => {} // tag => eprintln!("unknown tag {}", tag);
             }
         }
     }
