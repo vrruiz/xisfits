@@ -1,6 +1,8 @@
+use crate::CLI;
 use std::{
     fs::File,
     io::{self, BufWriter, Write},
+    path::Path,
 };
 
 pub struct FitsHeaderData {
@@ -30,7 +32,9 @@ where
 {
     let mut header = string.to_string();
     header.truncate(80);
-    println!("FITS header: \"{}\"", header);
+    if CLI.verbose() {
+        println!("FITS header: \"{}\"", header);
+    }
     let header_bytes = header.as_bytes();
     fits.write_all(header_bytes)?;
     *bytes += header_bytes.len() as u64;
@@ -114,11 +118,15 @@ where
     }
 
     // Write Data Unit
-    println!("FITS write > Write image data");
+    if CLI.verbose() {
+        println!("FITS write > Write image data");
+    }
     fits.write_all(&fits_hd.data_bytes)?;
     let total = fits_hd.data_bytes.len() as u64;
     let data_unit_rest = total % 2880;
-    println!("FITS write > Write image data > Bytes total: {}", total);
+    if CLI.verbose() {
+        println!("FITS write > Write image data > Bytes total: {}", total);
+    }
     // Write Data Unit (fill the rest of the 2880 byte-block)
     if data_unit_rest > 0 {
         let rest = 2880 - data_unit_rest;
@@ -131,12 +139,16 @@ where
 }
 
 pub fn fits_write_data(filename: &str, fits_hd: &FitsHeaderData) -> io::Result<()> {
-    println!("FITS write > File name > {}", filename);
+    if CLI.verbose() {
+        println!("FITS write > File name > {}", filename.display());
+    }
     let mut fits = BufWriter::new(File::create(filename)?);
     let mut bytes = 0;
 
     // Write HDU
-    println!("FITS write > Write headers");
+    if CLI.verbose() {
+        println!("FITS write > Write headers");
+    }
     fits_write_header_string(&mut fits, "SIMPLE", "T", "", &mut bytes)?;
     fits_write_header_i64(&mut fits, "BITPIX", fits_hd.bitpix, "", &mut bytes)?;
     fits_write_header_u64(&mut fits, "NAXIS", fits_hd.naxis, "", &mut bytes)?;
@@ -174,16 +186,20 @@ pub fn fits_write_data(filename: &str, fits_hd: &FitsHeaderData) -> io::Result<(
 
 // Write FITS data, but use FITS keywords for the header
 pub fn fits_write_data_keywords(
-    filename: &str,
+    filename: &Path,
     fits_hd: &FitsHeaderData,
     fits_keywords: &[FITSKeyword],
 ) -> io::Result<()> {
-    println!("FITS write > File name > {}", filename);
+    if CLI.verbose() {
+        println!("FITS write > File name > {}", filename.display());
+    }
     let mut fits = File::create(filename)?;
     let mut bytes = 0;
 
     // Write HDU
-    println!("FITS write > Write headers");
+    if CLI.verbose() {
+        println!("FITS write > Write headers");
+    }
     for keyword in fits_keywords.iter() {
         if keyword.name == "HISTORY" || keyword.name == "COMMENT" {
             fits_write_header_comment(&mut fits, &keyword.name, &keyword.comment, &mut bytes)?;
