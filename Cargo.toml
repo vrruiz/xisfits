@@ -3,11 +3,14 @@ name = "xisfits"
 version = "0.1.0"
 authors = ["rvr"]
 edition = "2018"
+description = "XISFITS is a command line tool to convert XISF images to FITS."
 
 [dependencies]
 roxmltree = "0.7.1"
 xmlparser = "0.10.0"
 byteorder = "1.3.2"
+structopt = "0.3.3"
+lazy_static = "1.4.0"
 
 # The release profile, used for `cargo build`.
 [profile.dev]
