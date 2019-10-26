@@ -1,7 +1,7 @@
 use crate::CLI;
 use std::{
     fs::File,
-    io::{self, Write},
+    io::{self, BufWriter, Write},
     path::Path,
 };
 
@@ -26,7 +26,10 @@ pub struct FITSKeyword {
 }
 
 // Private functions to write the FITS headers to disk
-fn fits_write_header(fits: &mut File, string: &str, bytes: &mut u64) -> io::Result<()> {
+fn fits_write_header<W>(fits: &mut W, string: &str, bytes: &mut u64) -> io::Result<()>
+where
+    W: Write,
+{
     let mut header = string.to_string();
     header.truncate(80);
     if CLI.verbose() {
@@ -38,55 +41,73 @@ fn fits_write_header(fits: &mut File, string: &str, bytes: &mut u64) -> io::Resu
     Ok(())
 }
 
-fn fits_write_header_u64(
-    fits: &mut File,
+fn fits_write_header_u64<W>(
+    fits: &mut W,
     header: &str,
     value: u64,
     comment: &str,
     bytes: &mut u64,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    W: Write,
+{
     let string = format!("{:8} = {:<19} / {:47}", header, value, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_i64(
-    fits: &mut File,
+fn fits_write_header_i64<W>(
+    fits: &mut W,
     header: &str,
     value: i64,
     comment: &str,
     bytes: &mut u64,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    W: Write,
+{
     let string = format!("{:8} = {:<19} / {:47}", header, value, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_string(
-    fits: &mut File,
+fn fits_write_header_string<W>(
+    fits: &mut W,
     header: &str,
     value: &str,
     comment: &str,
     bytes: &mut u64,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    W: Write,
+{
     let string = format!("{:8} = {:<19} / {:48}", header, value, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_comment(
-    fits: &mut File,
+fn fits_write_header_comment<W>(
+    fits: &mut W,
     header: &str,
     comment: &str,
     bytes: &mut u64,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    W: Write,
+{
     let string = format!("{:8}{:72}", header, comment);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_header_no_comment(fits: &mut File, header: &str, bytes: &mut u64) -> io::Result<()> {
+fn fits_write_header_no_comment<W>(fits: &mut W, header: &str, bytes: &mut u64) -> io::Result<()>
+where
+    W: Write,
+{
     let string = format!("{:80}", header);
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_image_data(fits: &mut File, fits_hd: &FitsHeaderData, bytes: u64) -> io::Result<()> {
+fn fits_write_image_data<W>(fits: &mut W, fits_hd: &FitsHeaderData, bytes: u64) -> io::Result<()>
+where
+    W: Write,
+{
     // Write HDU (fill the rest of the 2880 byte-block)
     let hdu_rest = bytes % 2880;
     if hdu_rest > 0 {
@@ -117,11 +138,11 @@ fn fits_write_image_data(fits: &mut File, fits_hd: &FitsHeaderData, bytes: u64) 
     Ok(())
 }
 
-pub fn fits_write_data(filename: &Path, fits_hd: &FitsHeaderData) -> io::Result<()> {
+pub fn fits_write_data(filename: &str, fits_hd: &FitsHeaderData) -> io::Result<()> {
     if CLI.verbose() {
         println!("FITS write > File name > {}", filename.display());
     }
-    let mut fits = File::create(filename)?;
+    let mut fits = BufWriter::new(File::create(filename)?);
     let mut bytes = 0;
 
     // Write HDU
