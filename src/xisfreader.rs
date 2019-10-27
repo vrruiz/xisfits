@@ -1,16 +1,12 @@
-use crate::{
-    convert,
-    fitswriter::FITSKeyword,
-    CLI,
-};
+use crate::{convert, fitswriter::FITSKeyword, CLI};
 
-use compress::{zlib, lz4};
+use compress::{lz4, zlib};
 
 use std::{
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
+    path::Path,
     process,
-    path::Path
 };
 
 // Struct to store XISF header data
@@ -214,17 +210,22 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
     match xisf_header.compression_codec.as_ref() {
         "zlib" | "zlib+sh" => {
             // Uncompress using zlib decoder
-            result = zlib::Decoder::new(BufReader::new(&image_data[..])).read_to_end(&mut decompressed);
+            result =
+                zlib::Decoder::new(BufReader::new(&image_data[..])).read_to_end(&mut decompressed);
         }
         "lz4" => {
             // Uncompress using lz4 decoder
-            result = lz4::Decoder::new(BufReader::new(&image_data[..])).read_to_end(&mut decompressed);
+            result =
+                lz4::Decoder::new(BufReader::new(&image_data[..])).read_to_end(&mut decompressed);
         }
         // "lz4+sh" => {} // Gives error with lz4 decoder
         // "lz4hc" => {} // Not supported by lz4 decoder
         _ => {
             // Unsupported codec. Abort.
-            eprintln!("Read XISF > Uncompressing > Unsupported codec: {}", xisf_header.compression_codec);
+            eprintln!(
+                "Read XISF > Uncompressing > Unsupported codec: {}",
+                xisf_header.compression_codec
+            );
             process::exit(1);
         }
     }
@@ -236,7 +237,11 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
             }
             // If expected size doesn't match, abort
             if decompressed.len() != xisf_header.compression_size {
-                eprintln!("Read XISF > Uncompressing > Sizes don't match. Uncompressed: {} Expected: {}", image_data.len(), xisf_header.compression_size);
+                eprintln!(
+                    "Read XISF > Uncompressing > Sizes don't match. Uncompressed: {} Expected: {}",
+                    image_data.len(),
+                    xisf_header.compression_size
+                );
                 process::exit(1);
             }
         }
