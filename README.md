@@ -30,12 +30,14 @@ $ xisfits <image.xisf> <image.fits>
 - Reads XISF unsigned integer 8 bits, unsigned 16 bits, unsigned 32 bits, float 32 bits and float 64 bits.
 - Writes FITS unsigned signed 8 bits, signed 16 bits, float 32 bits and float 64 bits.
 - No third-party dependencies for managing XISF and FITS images.
+- Supports compression codecs zlib, zlib+sh and lz4.
 
 ## Known issues and limitations
 
 - Although the XISF format supports signed integers, currently only UInt8, UInt16 and UInt32 types can be converted to FITS.
 - UInt8 is converted to FITS BITPIX 8, which is also unsigned.
 - UInt16 and UInt32 are converted to signed 16 and 32 bits. In order to do so, if there are unsigned values greater than what signed values can store, those values are clipped.
+- Compression codecs lz4+sh, lz4hc and lz4hc+sh are not currently supported.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

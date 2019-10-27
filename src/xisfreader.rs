@@ -1,10 +1,16 @@
-use crate::{convert, fitswriter::FITSKeyword, CLI};
-use std::path::Path;
+use crate::{
+    convert,
+    fitswriter::FITSKeyword,
+    CLI,
+};
+
+use compress::{zlib, lz4};
 
 use std::{
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
     process,
+    path::Path
 };
 
 // Struct to store XISF header data
@@ -27,7 +33,7 @@ pub struct XISFHeader {
     pub location_length: u64,
     pub compression: String,
     pub compression_codec: String,
-    pub compression_size: u64,
+    pub compression_size: usize,
 }
 
 // Struct to store image data as vector
@@ -83,12 +89,14 @@ fn xisf_parse_xml(
                 // Parse and store <Image> tag attributes
                 "Image" => {
                     for attr in node.attributes() {
-                        println!(
-                            "<{} {}=\"{}\">",
-                            node.tag_name().name(),
-                            attr.name(),
-                            attr.value()
-                        );
+                        if CLI.verbose() {
+                            println!(
+                                "<{} {}=\"{}\">",
+                                node.tag_name().name(),
+                                attr.name(),
+                                attr.value()
+                            );
+                        }
                         match attr.name() {
                             "geometry" => {
                                 // Parse geometry string (size_x:size_y:n)
@@ -195,6 +203,51 @@ fn xisf_parse_xml(
     Ok(())
 }
 
+/// Uncompress image data
+fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> {
+    if CLI.verbose() {
+        println!("Read XISF > Uncompressing");
+    }
+    let mut decompressed = Vec::new();
+    let result;
+    // Match compression codec and call decoder
+    match xisf_header.compression_codec.as_ref() {
+        "zlib" | "zlib+sh" => {
+            // Uncompress using zlib decoder
+            result = zlib::Decoder::new(BufReader::new(&image_data[..])).read_to_end(&mut decompressed);
+        }
+        "lz4" => {
+            // Uncompress using lz4 decoder
+            result = lz4::Decoder::new(BufReader::new(&image_data[..])).read_to_end(&mut decompressed);
+        }
+        // "lz4+sh" => {} // Gives error with lz4 decoder
+        // "lz4hc" => {} // Not supported by lz4 decoder
+        _ => {
+            // Unsupported codec. Abort.
+            eprintln!("Read XISF > Uncompressing > Unsupported codec: {}", xisf_header.compression_codec);
+            process::exit(1);
+        }
+    }
+    match result {
+        Ok(_v) => {
+            // Data uncompressed
+            if CLI.verbose() {
+                println!("Read XISF > Uncompressed size: {}", decompressed.len());
+            }
+            // If expected size doesn't match, abort
+            if decompressed.len() != xisf_header.compression_size {
+                eprintln!("Read XISF > Uncompressing > Sizes don't match. Uncompressed: {} Expected: {}", image_data.len(), xisf_header.compression_size);
+                process::exit(1);
+            }
+        }
+        Err(r) => {
+            eprintln!("Read XISF > Uncompressing > Cannot uncompress: {}", r);
+            process::exit(1);
+        }
+    }
+    decompressed
+}
+
 // Read XISF file and decode headers and image
 pub fn xisf_read_file(
     xisf_filename: &Path,
@@ -282,15 +335,12 @@ pub fn xisf_read_file(
     }
 
     // Stop if data is compressed
-    if xisf_header.compression.is_empty() {
-        if CLI.verbose() {
+    if CLI.verbose() {
+        if xisf_header.compression.is_empty() {
             println!("Read XISF > Data uncompressed.");
-        }
-    } else {
-        if CLI.verbose() {
+        } else {
             println!("Read XISF > Data compressed.");
         }
-        process::exit(1);
     }
 
     // Interpret it as numbers and store as vector/s
@@ -322,6 +372,11 @@ pub fn xisf_read_file(
             Err(r) => eprintln!("Read XISF > Error reading image: {:?}", r),
         };
 
+        // Uncompress data
+        if !xisf_header.compression_codec.is_empty() {
+            image_data = xisf_uncompress_data(&xisf_header, &image_data[..]);
+        }
+
         // Read each channel
         for n in 0..xisf_header.geometry_channels {
             let image_channel = &image_data[(xisf_header.geometry_channels * n) as usize
@@ -351,8 +406,6 @@ pub fn xisf_read_file(
             }
         }
     }
-
-    // -- End of read image data from file
 
     Ok(())
     // -- End of read image data from file
