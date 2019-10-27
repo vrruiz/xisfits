@@ -138,7 +138,7 @@ where
     Ok(())
 }
 
-pub fn fits_write_data(filename: &str, fits_hd: &FitsHeaderData) -> io::Result<()> {
+pub fn fits_write_data(filename: &Path, fits_hd: &FitsHeaderData) -> io::Result<()> {
     if CLI.verbose() {
         println!("FITS write > File name > {}", filename.display());
     }
