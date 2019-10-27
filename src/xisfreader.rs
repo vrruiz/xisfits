@@ -174,9 +174,11 @@ fn xisf_parse_xml(
                         }
                     }
                     if CLI.verbose() {
-                         println!(
+                        println!(
                             "FITS Keyword: {} = {} / {}",
-                            xisf_fits_keyword.name, xisf_fits_keyword.value, xisf_fits_keyword.comment
+                            xisf_fits_keyword.name,
+                            xisf_fits_keyword.value,
+                            xisf_fits_keyword.comment
                         );
                     }
                     xisf_fits_keywords.push(xisf_fits_keyword);
