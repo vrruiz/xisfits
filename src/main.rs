@@ -17,16 +17,16 @@
     missing_copy_implementations
 )]
 
-mod convert;
-mod fitswriter;
-mod xisfreader;
-
 use lazy_static::lazy_static;
 use std::{
     io,
     path::{Path, PathBuf},
 };
 use structopt::StructOpt;
+
+mod convert;
+mod fitswriter;
+mod xisfreader;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about)]
@@ -168,4 +168,156 @@ fn main() -> io::Result<()> {
     // -- End of convert XISF to FITS
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_xisf_read_gray_8bit_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/x-special/xisf-image-gray-256x256-8bits.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {
+                assert_eq!(xisf_header.sample_format, "UInt8");
+                assert_eq!(xisf_header.geometry, "256:256:1");
+            }
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_xisf_read_rgb_16bit_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/x-special/xisf-image-rgb-256x256-16bits.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {
+                assert_eq!(xisf_header.sample_format, "UInt16");
+                assert_eq!(xisf_header.geometry, "256:256:3");
+            }
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_xisf_read_rgb_32bit_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/xisf-image-rgb-256x256-32bits.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {
+                assert_eq!(xisf_header.sample_format, "UInt32");
+                assert_eq!(xisf_header.geometry, "256:256:3");
+            }
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_xisf_read_rgb_8bit_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/xisf-image-rgb-256x256-8bits.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {}
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+        assert_eq!(xisf_header.sample_format, "UInt8");
+        assert_eq!(xisf_header.geometry, "256:256:3");
+    }
+
+    #[test]
+    fn test_xisf_read_gray_float32_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/xisf-image-gray-256x256-float-32bits.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {}
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+        assert_eq!(xisf_header.sample_format, "Float32");
+        assert_eq!(xisf_header.geometry, "255:255:1");
+    }
+
+    #[test]
+    fn test_xisf_read_gray_float64_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/xisf-image-gray-256x256-float-64bits.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {}
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+        assert_eq!(xisf_header.sample_format, "Float64");
+        assert_eq!(xisf_header.geometry, "255:255:1");
+    }
 }

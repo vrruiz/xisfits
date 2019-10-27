@@ -1,7 +1,7 @@
-use crate::{convert, fitswriter::FITSKeyword, CLI};
+use crate::{convert, fitswriter::FITSKeyword};
 
 use compress::{lz4, zlib};
-
+use log::info;
 use std::{
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
@@ -78,21 +78,17 @@ fn xisf_parse_xml(
 
     for node in doc.descendants() {
         if node.is_element() {
-            if CLI.verbose() {
-                println!("<{}>", node.tag_name().name());
-            }
+            info!("<{}>", node.tag_name().name());
             match node.tag_name().name() {
                 // Parse and store <Image> tag attributes
                 "Image" => {
                     for attr in node.attributes() {
-                        if CLI.verbose() {
-                            println!(
-                                "<{} {}=\"{}\">",
-                                node.tag_name().name(),
-                                attr.name(),
-                                attr.value()
-                            );
-                        }
+                        info!(
+                            "<{} {}=\"{}\">",
+                            node.tag_name().name(),
+                            attr.name(),
+                            attr.value()
+                        );
                         match attr.name() {
                             "geometry" => {
                                 // Parse geometry string (size_x:size_y:n)
@@ -132,9 +128,7 @@ fn xisf_parse_xml(
                                 xisf_header.location = attr.value().to_string();
                                 let split = xisf_header.location.split(':');
                                 for (n, s) in split.enumerate() {
-                                    if CLI.verbose() {
-                                        println!("Location part: {}", s);
-                                    }
+                                    info!("Location part: {}", s);
                                     if n == 0 {
                                         xisf_header.location_method = s.to_string();
                                     } else if n == 1 {
@@ -177,14 +171,10 @@ fn xisf_parse_xml(
                             xisf_fits_keyword.comment = attr.value().to_string();
                         }
                     }
-                    if CLI.verbose() {
-                        println!(
-                            "FITS Keyword: {} = {} / {}",
-                            xisf_fits_keyword.name,
-                            xisf_fits_keyword.value,
-                            xisf_fits_keyword.comment
-                        );
-                    }
+                    info!(
+                        "FITS Keyword: {} = {} / {}",
+                        xisf_fits_keyword.name, xisf_fits_keyword.value, xisf_fits_keyword.comment
+                    );
                     xisf_fits_keywords.push(xisf_fits_keyword);
                 }
                 _ => {} // tag => eprintln!("unknown tag {}", tag);
@@ -201,9 +191,7 @@ fn xisf_parse_xml(
 
 /// Uncompress image data
 fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> {
-    if CLI.verbose() {
-        println!("Read XISF > Uncompressing");
-    }
+    info!("Read XISF > Uncompressing");
     let mut decompressed = Vec::new();
     let result;
     // Match compression codec and call decoder
@@ -232,9 +220,7 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
     match result {
         Ok(_v) => {
             // Data uncompressed
-            if CLI.verbose() {
-                println!("Read XISF > Uncompressed size: {}", decompressed.len());
-            }
+            info!("Read XISF > Uncompressed size: {}", decompressed.len());
             // If expected size doesn't match, abort
             if decompressed.len() != xisf_header.compression_size {
                 eprintln!(
@@ -253,7 +239,41 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
     decompressed
 }
 
-// Read XISF file and decode headers and image
+/// Print header data
+fn xisf_print_header_info(xisf_header: &XISFHeader) {
+    // Print header values
+    info!("Header signature: {}", xisf_header.signature);
+
+    info!("Length: {}", xisf_header.length);
+    info!("Reserved: {}", xisf_header.reserved);
+    info!("Header: {}", xisf_header.header);
+
+    info!("Geometry: {}", xisf_header.geometry);
+    info!("Geometry sizes: {:?}", xisf_header.geometry_sizes);
+    info!("Geometry channels: {}", xisf_header.geometry_channels);
+    info!(
+        "Geometry channel size: {}",
+        xisf_header.geometry_channel_size
+    );
+    info!("Sample format: {}", xisf_header.sample_format);
+    info!("Sample format: {}", xisf_header.sample_format_bytes);
+    info!("Color space: {}", xisf_header.color_space);
+    info!("Location: {}", xisf_header.location);
+    info!("Location method: {}", xisf_header.location_method);
+    info!("Location start: {}", xisf_header.location_start);
+    info!("Location length: {}", xisf_header.location_length);
+    info!(
+        "Location length ({}) == channel size * channels ({})",
+        xisf_header.location_length,
+        xisf_header.geometry_channel_size * u64::from(xisf_header.geometry_channels)
+    );
+    info!(
+        "Compression: {} {} {}",
+        xisf_header.compression, xisf_header.compression_codec, xisf_header.compression_size
+    );
+}
+
+/// Read XISF file and decode headers and image
 pub fn xisf_read_file(
     xisf_filename: &Path,
     xisf_header: &mut XISFHeader,
@@ -269,10 +289,8 @@ pub fn xisf_read_file(
     // Open XISF image file
     let f = File::open(xisf_filename)?;
     let file_size = f.metadata().unwrap().len();
-    if CLI.verbose() {
-        println!("File size: {}", file_size);
-    }
     let mut f = BufReader::new(f);
+    info!("File size: {}", file_size);
 
     // -- Read header fields
     // Header: Signature
@@ -298,54 +316,25 @@ pub fn xisf_read_file(
     xisf_header.header = buffer_header_header.clone();
     // -- End of read header fields
 
-    if CLI.verbose() {
-        // Print header values
-        println!("{}", xisf_header.signature);
-        if xisf_header.signature == "XISF0100" {
-            println!("XISF signature: Ok");
-        }
-        println!("Length: {}", xisf_header.length);
-        println!("Reserved: {}", xisf_header.reserved);
-        println!("Header: {}", xisf_header.header);
-    }
-
     // Parse XML Header section
     xisf_parse_xml(xisf_header, xisf_fits_keywords)?;
 
-    if CLI.verbose() {
-        // Output parsed data
-        println!("Geometry: {}", xisf_header.geometry);
-        println!("Geometry sizes: {:?}", xisf_header.geometry_sizes);
-        println!("Geometry channels: {}", xisf_header.geometry_channels);
-        println!(
-            "Geometry channel size: {}",
-            xisf_header.geometry_channel_size
-        );
-        println!("Sample format: {}", xisf_header.sample_format);
-        println!("Sample format: {}", xisf_header.sample_format_bytes);
-        println!("Color space: {}", xisf_header.color_space);
-        println!("Location: {}", xisf_header.location);
-        println!("Location method: {}", xisf_header.location_method);
-        println!("Location start: {}", xisf_header.location_start);
-        println!("Location length: {}", xisf_header.location_length);
-        println!(
-            "Location length ({}) == channel size * channels ({})",
-            xisf_header.location_length,
-            xisf_header.geometry_channel_size * u64::from(xisf_header.geometry_channels)
-        );
-        println!(
-            "Compression: {} {} {}",
-            xisf_header.compression, xisf_header.compression_codec, xisf_header.compression_size
-        );
+    // Check signature
+    if xisf_header.signature == "XISF0100" {
+        info!("XISF signature: Ok");
+    } else {
+        eprintln!("Incorrect XISF signature: {}", xisf_header.signature);
+        process::exit(1);
     }
 
+    // Output parsed data
+    xisf_print_header_info(&xisf_header);
+
     // Stop if data is compressed
-    if CLI.verbose() {
-        if xisf_header.compression.is_empty() {
-            println!("Read XISF > Data uncompressed.");
-        } else {
-            println!("Read XISF > Data compressed.");
-        }
+    if xisf_header.compression.is_empty() {
+        info!("Read XISF > Data uncompressed.");
+    } else {
+        info!("Read XISF > Data compressed.");
     }
 
     // Interpret it as numbers and store as vector/s
@@ -355,11 +344,11 @@ pub fn xisf_read_file(
     {
         match f.seek(SeekFrom::Start(xisf_header.location_start)) {
             Ok(v) => {
-                if CLI.verbose() {
-                    println!("Read XISF > File correctly seek: {:?}", v)
-                }
+                info!("Read XISF > File correctly seek: {:?}", v);
             }
-            Err(r) => eprintln!("Read XISF > Error seeking file: {:?}", r),
+            Err(r) => {
+                eprintln!("Read XISF > Error seeking file: {:?}", r);
+            }
         }
 
         let mut image_data = Vec::new();
@@ -370,11 +359,11 @@ pub fn xisf_read_file(
             .read_to_end(&mut image_data)
         {
             Ok(v) => {
-                if CLI.verbose() {
-                    println!("Read XISF > Data correctly read: {:?}", v)
-                }
+                info!("Read XISF > Data correctly read: {:?}", v);
             }
-            Err(r) => eprintln!("Read XISF > Error reading image: {:?}", r),
+            Err(r) => {
+                eprintln!("Read XISF > Error reading image: {:?}", r);
+            }
         };
 
         // Uncompress data
@@ -398,16 +387,6 @@ pub fn xisf_read_file(
                     "Read XISF > Unsupported type > {}",
                     xisf_header.sample_format.as_str()
                 ),
-            }
-
-            if CLI.verbose() {
-                // Show the first 20 bytes of the original image data
-                if image_channel.len() >= 20 {
-                    for byte in image_channel.iter().take(20) {
-                        print!("{:x} ", byte);
-                    }
-                    println!();
-                }
             }
         }
     }
