@@ -187,7 +187,8 @@ mod test {
             &mut xisf_header,
             &mut xisf_data,
             &mut xisf_fits_keywords,
-        );
+        )
+        .unwrap();
         match result {
             Ok(_m) => {
                 assert_eq!(xisf_header.sample_format, "UInt8");
@@ -212,7 +213,8 @@ mod test {
             &mut xisf_header,
             &mut xisf_data,
             &mut xisf_fits_keywords,
-        );
+        )
+        .unwrap();
         match result {
             Ok(_m) => {
                 assert_eq!(xisf_header.sample_format, "UInt16");
@@ -237,7 +239,8 @@ mod test {
             &mut xisf_header,
             &mut xisf_data,
             &mut xisf_fits_keywords,
-        );
+        )
+        .unwrap();
         match result {
             Ok(_m) => {
                 assert_eq!(xisf_header.sample_format, "UInt32");
@@ -262,7 +265,8 @@ mod test {
             &mut xisf_header,
             &mut xisf_data,
             &mut xisf_fits_keywords,
-        );
+        )
+        .unwrap();
         match result {
             Ok(_m) => {}
             Err(e) => {
@@ -286,7 +290,8 @@ mod test {
             &mut xisf_header,
             &mut xisf_data,
             &mut xisf_fits_keywords,
-        );
+        )
+        .unwrap();
         match result {
             Ok(_m) => {}
             Err(e) => {
@@ -310,7 +315,8 @@ mod test {
             &mut xisf_header,
             &mut xisf_data,
             &mut xisf_fits_keywords,
-        );
+        )
+        .unwrap();
         match result {
             Ok(_m) => {}
             Err(e) => {
