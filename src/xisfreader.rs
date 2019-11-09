@@ -217,10 +217,10 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
             process::exit(1);
         }
     }
+    info!("Read XISF > Uncompressed size: {}", decompressed.len());
     match result {
         Ok(_v) => {
             // Data uncompressed
-            info!("Read XISF > Uncompressed size: {}", decompressed.len());
             // If expected size doesn't match, abort
             if decompressed.len() != xisf_header.compression_size {
                 eprintln!(
@@ -232,6 +232,7 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
             }
         }
         Err(r) => {
+            // Error uncompressing data
             eprintln!("Read XISF > Uncompressing > Cannot uncompress: {}", r);
             process::exit(1);
         }
