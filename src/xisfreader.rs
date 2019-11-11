@@ -98,7 +98,7 @@ fn xisf_parse_xml(
                                     xisf_header.geometry.split(':').collect();
                                 if geometry_data.len() > 1 {
                                     let mut channel_size = 0;
-                                    for g_data in &geometry_data {
+                                    for g_data in &geometry_data[0..geometry_data.len() - 1] {
                                         let size = g_data.parse::<u64>().unwrap();
                                         if channel_size == 0 {
                                             channel_size = size;
@@ -363,6 +363,7 @@ pub fn xisf_read_file(
             }
             Err(r) => {
                 eprintln!("Read XISF > Error seeking file: {:?}", r);
+                process::exit(1);
             }
         }
 
@@ -388,8 +389,8 @@ pub fn xisf_read_file(
 
         // Read each channel
         for n in 0..xisf_header.geometry_channels {
-            let image_channel = &image_data[(xisf_header.geometry_channels * n) as usize
-                ..(xisf_header.geometry_channels * (n + 1) - 1) as usize];
+            let image_channel = &image_data[(xisf_header.geometry_channel_size as u32 * n) as usize
+                ..(xisf_header.geometry_channel_size as u32 * (n + 1)) as usize];
 
             // Convert bytes to actual numbers and store the channel in a vector
             match xisf_header.sample_format.as_str() {
