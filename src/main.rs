@@ -17,8 +17,8 @@
     missing_copy_implementations
 )]
 
-use log::info;
 use env_logger;
+use log::info;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -367,7 +367,8 @@ mod test {
         assert_eq!(xisf_header.compression_codec, "zlib+sh");
     }
 
-    #[test] #[ignore] // LZ4 uncompression currently fails
+    #[test]
+    #[ignore] // LZ4 uncompression currently fails
     fn test_xisf_read_lz4_file() {
         // Test that we can read a XISF file
         let xisf_filename = Path::new("tests/images/xisf-image-gray-256x256-16bits-lz4.xisf");
@@ -391,5 +392,4 @@ mod test {
         assert_eq!(xisf_header.geometry, "256:256:1");
         assert_eq!(xisf_header.compression_codec, "lz4");
     }
-
 }

@@ -240,10 +240,17 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
     }
     // Unshuffle
     if xisf_header.sample_format_bytes > 1 {
-        info!("Read XISF > Uncompressing > Unshuffling {}", xisf_header.compression_codec);
+        info!(
+            "Read XISF > Uncompressing > Unshuffling {}",
+            xisf_header.compression_codec
+        );
         if xisf_header.compression_codec.as_str() == "zlib+sh" {
-            decompressed = convert::unshuffle(&decompressed, xisf_header.sample_format_bytes as usize);
-            info!("Read XISF > Uncompressing > Unshuffling > Decompressed len: {}", decompressed.len());
+            decompressed =
+                convert::unshuffle(&decompressed, xisf_header.sample_format_bytes as usize);
+            info!(
+                "Read XISF > Uncompressing > Unshuffling > Decompressed len: {}",
+                decompressed.len()
+            );
         }
     }
     decompressed
