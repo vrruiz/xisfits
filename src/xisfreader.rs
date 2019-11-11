@@ -61,6 +61,7 @@ pub fn xisf_type_size(xisf_type: &str) -> u8 {
     }
 }
 
+/// Parse XISF's XML header
 fn xisf_parse_xml(
     xisf_header: &mut XISFHeader,
     xisf_fits_keywords: &mut Vec<FITSKeyword>,
@@ -235,6 +236,19 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Vec<u8> 
             // Error uncompressing data
             eprintln!("Read XISF > Uncompressing > Cannot uncompress: {}", r);
             process::exit(1);
+        }
+    }
+    // Unshuffle
+    if xisf_header.sample_format_bytes > 1 {
+        info!("Read XISF > Uncompressing > Unshuffling {}", xisf_header.compression_codec);
+        match xisf_header.compression_codec.as_str() {
+            "zlib+sh" => {
+                decompressed = convert::unshuffle(&decompressed, xisf_header.sample_format_bytes as usize);
+                info!("Decompressed len: {}", decompressed.len());
+            }
+            _ => {
+                // Do nothing
+            }
         }
     }
     decompressed

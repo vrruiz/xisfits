@@ -350,6 +350,31 @@ mod test {
         assert_eq!(xisf_header.compression_codec, "zlib");
     }
 
+    #[test]
+    fn test_xisf_read_zlibsh_file() {
+        // Test that we can read a XISF file
+        let xisf_filename = Path::new("tests/images/xisf-image-gray-256x256-16bits-zlib_sh.xisf");
+        let mut xisf_header = xisfreader::XISFHeader::default();
+        let mut xisf_data = xisfreader::XISFData::default();
+        let mut xisf_fits_keywords = Vec::new();
+
+        let result = xisfreader::xisf_read_file(
+            xisf_filename,
+            &mut xisf_header,
+            &mut xisf_data,
+            &mut xisf_fits_keywords,
+        );
+        match result {
+            Ok(_m) => {}
+            Err(e) => {
+                eprintln!("Tests > Error: {}", e);
+            }
+        }
+        assert_eq!(xisf_header.sample_format, "UInt16");
+        assert_eq!(xisf_header.geometry, "256:256:1");
+        assert_eq!(xisf_header.compression_codec, "zlib+sh");
+    }
+
     #[test] #[ignore] // LZ4 uncompression currently fails
     fn test_xisf_read_lz4_file() {
         // Test that we can read a XISF file
