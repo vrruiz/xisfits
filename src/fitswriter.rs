@@ -1,4 +1,4 @@
-use crate::CLI;
+use log::info;
 use std::{
     fs::File,
     io::{self, BufWriter, Write},
@@ -32,9 +32,7 @@ where
 {
     let mut header = string.to_string();
     header.truncate(80);
-    if CLI.verbose() {
-        println!("FITS header: \"{}\"", header);
-    }
+    info!("FITS header: \"{}\"", header);
     let header_bytes = header.as_bytes();
     fits.write_all(header_bytes)?;
     *bytes += header_bytes.len() as u64;
@@ -108,25 +106,12 @@ fn fits_write_image_data<W>(fits: &mut W, fits_hd: &FitsHeaderData, bytes: u64) 
 where
     W: Write,
 {
-    // Write HDU (fill the rest of the 2880 byte-block)
-    let hdu_rest = bytes % 2880;
-    if hdu_rest > 0 {
-        let rest = 2880 - hdu_rest;
-        for _i in 0..rest {
-            fits.write_all(b" ")?;
-        }
-    }
-
     // Write Data Unit
-    if CLI.verbose() {
-        println!("FITS write > Write image data");
-    }
+    info!("FITS write > Write image data");
     fits.write_all(&fits_hd.data_bytes)?;
     let total = fits_hd.data_bytes.len() as u64;
     let data_unit_rest = total % 2880;
-    if CLI.verbose() {
-        println!("FITS write > Write image data > Bytes total: {}", total);
-    }
+    info!("FITS write > Write image data > Bytes total: {}", total);
     // Write Data Unit (fill the rest of the 2880 byte-block)
     if data_unit_rest > 0 {
         let rest = 2880 - data_unit_rest;
@@ -139,16 +124,12 @@ where
 }
 
 pub fn fits_write_data(filename: &Path, fits_hd: &FitsHeaderData) -> io::Result<()> {
-    if CLI.verbose() {
-        println!("FITS write > File name > {}", filename.display());
-    }
+    info!("FITS write > File name > {}", filename.display());
     let mut fits = BufWriter::new(File::create(filename)?);
     let mut bytes = 0;
 
     // Write HDU
-    if CLI.verbose() {
-        println!("FITS write > Write headers");
-    }
+    info!("FITS write > Write headers");
     fits_write_header_string(&mut fits, "SIMPLE", "T", "", &mut bytes)?;
     fits_write_header_i64(&mut fits, "BITPIX", fits_hd.bitpix, "", &mut bytes)?;
     fits_write_header_u64(&mut fits, "NAXIS", fits_hd.naxis, "", &mut bytes)?;
@@ -190,16 +171,12 @@ pub fn fits_write_data_keywords(
     fits_hd: &FitsHeaderData,
     fits_keywords: &[FITSKeyword],
 ) -> io::Result<()> {
-    if CLI.verbose() {
-        println!("FITS write > File name > {}", filename.display());
-    }
+    info!("FITS write > File name > {}", filename.display());
     let mut fits = File::create(filename)?;
     let mut bytes = 0;
 
     // Write HDU
-    if CLI.verbose() {
-        println!("FITS write > Write headers");
-    }
+    info!("FITS write > Write headers");
     for keyword in fits_keywords.iter() {
         if keyword.name == "HISTORY" || keyword.name == "COMMENT" {
             fits_write_header_comment(&mut fits, &keyword.name, &keyword.comment, &mut bytes)?;
