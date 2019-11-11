@@ -102,7 +102,7 @@ where
     fits_write_header(fits, &string, bytes)
 }
 
-fn fits_write_image_data<W>(fits: &mut W, fits_hd: &FitsHeaderData, bytes: u64) -> io::Result<()>
+fn fits_write_image_data<W>(fits: &mut W, fits_hd: &FitsHeaderData, _bytes: u64) -> io::Result<()>
 where
     W: Write,
 {

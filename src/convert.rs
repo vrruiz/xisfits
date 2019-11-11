@@ -127,7 +127,7 @@ pub fn unshuffle(array: &[u8], byte_size: usize) -> Vec<u8> {
     // Based on http://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html#byte_shuffling
     let array_size = array.len();
     let mut unshuffled = Vec::with_capacity(array_size);
-    unshuffled.resize(unshuffled.capacity(), 0u8);
+    unshuffled.resize(unshuffled.capacity(), 0_u8);
     let n_items = array_size / byte_size;
     for j in 0..(byte_size-1) {
         let array_start = j * n_items * byte_size;
