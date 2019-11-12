@@ -61,6 +61,31 @@ pub fn xisf_type_size(xisf_type: &str) -> u8 {
     }
 }
 
+/// Parse geometry string
+fn xisf_parse_xml_geometry(
+    xisf_header: &mut XISFHeader,
+    attr: &roxmltree::Attribute<'_>
+) {
+    xisf_header.geometry = String::from(attr.value());
+    let geometry_data: Vec<&str> = xisf_header.geometry.split(':').collect();
+    if geometry_data.len() > 1 {
+        let mut channel_size = 0;
+        for g_data in &geometry_data[0..geometry_data.len() - 1] {
+            let size = g_data.parse::<u64>().unwrap();
+            if channel_size == 0 {
+                channel_size = size;
+            } else {
+                channel_size *= size;
+            }
+            xisf_header.geometry_sizes.push(size);
+        }
+        xisf_header.geometry_channel_size = channel_size;
+        xisf_header.geometry_channels = geometry_data[geometry_data.len() - 1]
+            .parse::<u32>()
+            .unwrap();
+    }
+}
+
 /// Parse XISF's XML header
 fn xisf_parse_xml(
     xisf_header: &mut XISFHeader,
@@ -69,7 +94,8 @@ fn xisf_parse_xml(
     // -- Parse XML Header
     // e.g. <Image geometry="256:256:1" sampleFormat="UInt8"
     //       colorSpace="Gray" location="attachment:4096:65536">
-    let doc = match roxmltree::Document::parse(&xisf_header.header) {
+    let header_xml = xisf_header.header.clone();
+    let doc = match roxmltree::Document::parse(&header_xml) {
         Ok(doc) => doc,
         Err(e) => {
             eprintln!("Error: {}.", e);
@@ -93,26 +119,7 @@ fn xisf_parse_xml(
                         match attr.name() {
                             "geometry" => {
                                 // Parse geometry string (size_x:size_y:n)
-                                xisf_header.geometry = String::from(attr.value());
-                                let geometry_data: Vec<&str> =
-                                    xisf_header.geometry.split(':').collect();
-                                if geometry_data.len() > 1 {
-                                    let mut channel_size = 0;
-                                    for g_data in &geometry_data[0..geometry_data.len() - 1] {
-                                        let size = g_data.parse::<u64>().unwrap();
-                                        if channel_size == 0 {
-                                            channel_size = size;
-                                        } else {
-                                            channel_size *= size;
-                                        }
-                                        xisf_header.geometry_sizes.push(size);
-                                    }
-                                    xisf_header.geometry_channel_size = channel_size;
-                                    xisf_header.geometry_channels = geometry_data
-                                        [geometry_data.len() - 1]
-                                        .parse::<u32>()
-                                        .unwrap();
-                                }
+                                xisf_parse_xml_geometry(xisf_header, attr);
                             }
                             "sampleFormat" => {
                                 // Parse image format
