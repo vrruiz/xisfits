@@ -19,6 +19,7 @@ pub struct FitsHeaderData {
 }
 
 // Struct to store FITS keywords
+#[derive(Debug, Default)]
 pub struct FITSKeyword {
     pub name: String,
     pub value: String,

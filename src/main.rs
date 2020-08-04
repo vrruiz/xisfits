@@ -17,7 +17,6 @@
     missing_copy_implementations
 )]
 
-use env_logger;
 use log::info;
 use std::{
     io,
@@ -102,7 +101,7 @@ pub fn xisf_data_to_fits(
 
     // Show the first 20 bytes of the converted image
     if fits_data.len() > 20 {
-        let mut message = String::from("");
+        let mut message = String::new();
         for byte in fits_data.iter().take(20) {
             message.push_str(&format!("{:x} ", byte));
         }

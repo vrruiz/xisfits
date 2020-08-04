@@ -1,12 +1,13 @@
 use crate::{convert, fitswriter::FITSKeyword};
 
 use compress::{lz4, zlib};
-use log::info;
+use log::{debug, info};
+use quick_xml::{events::Event, Reader};
 use std::{
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
     path::Path,
-    process,
+    process, str,
 };
 
 // Struct to store XISF header data
@@ -57,32 +58,7 @@ pub fn xisf_type_size(xisf_type: &str) -> u8 {
         "Int32" | "UInt32" | "Float32" => 4,
         "Int64" | "UInt64" | "Float64" => 8,
         "Int128" | "UInt128" | "Float128" => 16,
-        _ => unreachable!(),
-    }
-}
-
-/// Parse geometry string
-fn xisf_parse_xml_geometry(
-    xisf_header: &mut XISFHeader,
-    attr: &roxmltree::Attribute<'_>
-) {
-    xisf_header.geometry = String::from(attr.value());
-    let geometry_data: Vec<&str> = xisf_header.geometry.split(':').collect();
-    if geometry_data.len() > 1 {
-        let mut channel_size = 0;
-        for g_data in &geometry_data[0..geometry_data.len() - 1] {
-            let size = g_data.parse::<u64>().unwrap();
-            if channel_size == 0 {
-                channel_size = size;
-            } else {
-                channel_size *= size;
-            }
-            xisf_header.geometry_sizes.push(size);
-        }
-        xisf_header.geometry_channel_size = channel_size;
-        xisf_header.geometry_channels = geometry_data[geometry_data.len() - 1]
-            .parse::<u32>()
-            .unwrap();
+        _ => unreachable!("unsupported XISF type found: {}", xisf_type),
     }
 }
 
@@ -94,101 +70,125 @@ fn xisf_parse_xml(
     // -- Parse XML Header
     // e.g. <Image geometry="256:256:1" sampleFormat="UInt8"
     //       colorSpace="Gray" location="attachment:4096:65536">
-    let header_xml = xisf_header.header.clone();
-    let doc = match roxmltree::Document::parse(&header_xml) {
-        Ok(doc) => doc,
-        Err(e) => {
-            eprintln!("Error: {}.", e);
-            process::exit(1);
-        }
-    };
+    let mut reader = Reader::from_str(&xisf_header.header);
+    let mut buf = Vec::new();
 
-    for node in doc.descendants() {
-        if node.is_element() {
-            info!("<{}>", node.tag_name().name());
-            match node.tag_name().name() {
-                // Parse and store <Image> tag attributes
-                "Image" => {
-                    for attr in node.attributes() {
+    loop {
+        match reader.read_event(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                info!("<{}>", String::from_utf8_lossy(e.name()));
+                match e.name() {
+                    b"Image" => {
+                        // Parse and store <Image> tag attributes
+                        for attr in e.attributes() {
+                            let attr = attr.unwrap();
+                            info!(
+                                "<{} {}=\"{}\">",
+                                String::from_utf8_lossy(e.name()),
+                                String::from_utf8_lossy(&attr.key),
+                                String::from_utf8_lossy(&attr.value),
+                            );
+                            match attr.key {
+                                b"geometry" => {
+                                    // Parse geometry string (size_x:size_y:n)
+                                    xisf_header.geometry =
+                                        str::from_utf8(&attr.value).unwrap().to_owned();
+
+                                    if xisf_header.geometry.contains(':') {
+                                        let mut iter = xisf_header.geometry.split(':');
+
+                                        let size_x = iter.next().unwrap().parse::<u64>().unwrap();
+                                        let size_y = iter.next().unwrap().parse::<u64>().unwrap();
+                                        let num_channels =
+                                            iter.next().unwrap().parse::<u32>().unwrap();
+
+                                        xisf_header.geometry_channel_size = size_x * size_y;
+                                        xisf_header.geometry_channels = num_channels;
+                                    }
+                                }
+                                b"sampleFormat" => {
+                                    // Parse image format
+                                    xisf_header.sample_format =
+                                        str::from_utf8(&attr.value).unwrap().to_owned();
+                                    xisf_header.sample_format_bytes =
+                                        xisf_type_size(&xisf_header.sample_format);
+                                }
+                                b"colorSpace" => {
+                                    // Parse space color
+                                    xisf_header.color_space =
+                                        str::from_utf8(&attr.value).unwrap().to_owned();
+                                }
+                                b"location" => {
+                                    // Parse location. Format: "chan_size1:..:chan_size_n:n_channels" format
+                                    xisf_header.location =
+                                        str::from_utf8(&attr.value).unwrap().to_owned();
+                                    let split = xisf_header.location.split(':');
+                                    for (n, s) in split.enumerate() {
+                                        info!("Location part: {}", s);
+                                        if n == 0 {
+                                            xisf_header.location_method = s.to_owned();
+                                        } else if n == 1 {
+                                            xisf_header.location_start = s.parse().unwrap();
+                                        } else if n == 2 {
+                                            // location_length = image data size (compressed)
+                                            xisf_header.location_length = s.parse().unwrap();
+                                        }
+                                    }
+                                }
+                                b"compression" => {
+                                    // Parse compression. Format: "compression_algorithm:uncompressed-size"
+                                    xisf_header.compression =
+                                        str::from_utf8(&attr.value).unwrap().to_owned();
+                                    let mut iter = xisf_header.compression.split(':');
+
+                                    xisf_header.compression_codec = iter.next().unwrap().to_owned();
+                                    xisf_header.compression_size =
+                                        iter.next().unwrap().parse().unwrap();
+                                }
+                                _ => {} //name => eprintln!("unknown attribute name {}", name),
+                            }
+                        }
+                    }
+                    b"FITSKeyword" => {
+                        // Parse and store the values of the FITS keyword
+                        let mut xisf_fits_keyword = FITSKeyword::default();
+
+                        for attr in e.attributes() {
+                            let attr = attr.unwrap();
+
+                            let value = str::from_utf8(&attr.value).unwrap().to_owned();
+                            match attr.key {
+                                b"name" => {
+                                    xisf_fits_keyword.name = value;
+                                }
+                                b"value" => {
+                                    xisf_fits_keyword.value = value;
+                                }
+                                b"comment" => xisf_fits_keyword.comment = value,
+                                _ => {}
+                            }
+                        }
+
                         info!(
-                            "<{} {}=\"{}\">",
-                            node.tag_name().name(),
-                            attr.name(),
-                            attr.value()
+                            "FITS Keyword: {} = {} / {}",
+                            xisf_fits_keyword.name,
+                            xisf_fits_keyword.value,
+                            xisf_fits_keyword.comment
                         );
-                        match attr.name() {
-                            "geometry" => {
-                                // Parse geometry string (size_x:size_y:n)
-                                xisf_parse_xml_geometry(xisf_header, attr);
-                            }
-                            "sampleFormat" => {
-                                // Parse image format
-                                xisf_header.sample_format = attr.value().to_string();
-                                xisf_header.sample_format_bytes =
-                                    xisf_type_size(&xisf_header.sample_format);
-                            }
-                            "colorSpace" => {
-                                // Parse space color
-                                xisf_header.color_space = attr.value().to_string();
-                            }
-                            "location" => {
-                                // Parse location. Format: "chan_size1:..:chan_size_n:n_channels" format
-                                xisf_header.location = attr.value().to_string();
-                                let split = xisf_header.location.split(':');
-                                for (n, s) in split.enumerate() {
-                                    info!("Location part: {}", s);
-                                    if n == 0 {
-                                        xisf_header.location_method = s.to_string();
-                                    } else if n == 1 {
-                                        xisf_header.location_start = s.parse().unwrap();
-                                    } else if n == 2 {
-                                        // location_length = image data size (compressed)
-                                        xisf_header.location_length = s.parse().unwrap();
-                                    }
-                                }
-                            }
-                            "compression" => {
-                                // Parse compression. Format: "compression_algorithm:uncompressed-size"
-                                xisf_header.compression = attr.value().to_string();
-                                let split = xisf_header.compression.split(':');
-                                for (n, s) in split.enumerate() {
-                                    match n {
-                                        0 => xisf_header.compression_codec = s.to_string(),
-                                        1 => xisf_header.compression_size = s.parse().unwrap(),
-                                        _ => (),
-                                    }
-                                }
-                            }
-                            _ => {} //name => eprintln!("unknown attribute name {}", name),
-                        }
+                        xisf_fits_keywords.push(xisf_fits_keyword);
                     }
+                    tag => debug!("unknown tag {}", String::from_utf8_lossy(tag)),
                 }
-                "FITSKeyword" => {
-                    // Parse and store the values of the FITS keyword
-                    let mut xisf_fits_keyword = FITSKeyword {
-                        name: String::from(""),
-                        value: String::from(""),
-                        comment: String::from(""),
-                    };
-                    for attr in node.attributes() {
-                        if attr.name() == "name" {
-                            xisf_fits_keyword.name = attr.value().to_string();
-                        } else if attr.name() == "value" {
-                            xisf_fits_keyword.value = attr.value().to_string();
-                        } else if attr.name() == "comment" {
-                            xisf_fits_keyword.comment = attr.value().to_string();
-                        }
-                    }
-                    info!(
-                        "FITS Keyword: {} = {} / {}",
-                        xisf_fits_keyword.name, xisf_fits_keyword.value, xisf_fits_keyword.comment
-                    );
-                    xisf_fits_keywords.push(xisf_fits_keyword);
-                }
-                _ => {} // tag => eprintln!("unknown tag {}", tag);
             }
+            Ok(Event::Eof) => break, // exits the loop when reaching end of file
+            Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
+            Ok(_) => (), // There are several other `Event`s we do not consider here
         }
+
+        // if we don't keep a borrow elsewhere, we can clear the buffer to keep memory usage low
+        buf.clear();
     }
+
     // Calculate the size in bytes of the image
     if xisf_header.sample_format_bytes > 0 {
         xisf_header.geometry_channel_size *= u64::from(xisf_header.sample_format_bytes);
@@ -334,10 +334,10 @@ pub fn xisf_read_file(
     let _ = handle.read_to_string(&mut buffer_header_header)?;
 
     // Assign header values to XISF header struct
-    xisf_header.signature = buffer_header_signature.clone();
+    xisf_header.signature = buffer_header_signature;
     xisf_header.length = convert::u8_to_v_u32(&buffer_header_length)[0];
     xisf_header.reserved = convert::u8_to_v_u32(&buffer_header_reserved)[0];
-    xisf_header.header = buffer_header_header.clone();
+    xisf_header.header = buffer_header_header;
     // -- End of read header fields
 
     // Parse XML Header section
