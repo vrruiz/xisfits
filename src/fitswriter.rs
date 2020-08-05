@@ -8,7 +8,7 @@ use std::{
 pub struct FitsHeaderData<'h> {
     pub bitpix: i64,
     pub naxis: u64,
-    pub naxis_vec: &'h [u64],
+    pub naxis_vec: &'h [usize],
     pub bzero: u64,
     pub bscale: u64,
     pub datamin: u64,
@@ -139,7 +139,7 @@ pub fn fits_write_data(filename: &Path, fits_hd: &FitsHeaderData) -> io::Result<
         fits_write_header_u64(
             &mut fits,
             &header_name,
-            fits_hd.naxis_vec[i],
+            fits_hd.naxis_vec[i] as u64,
             "",
             &mut bytes,
         )?;
