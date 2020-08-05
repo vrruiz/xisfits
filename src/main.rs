@@ -16,12 +16,13 @@
     missing_debug_implementations,
     missing_copy_implementations
 )]
+#![allow(clippy::must_use_candidate)]
 
 mod convert;
 mod fitswriter;
 mod xisfreader;
 
-use crate::xisfreader::{XISFType, XISFile};
+use crate::xisfreader::{XISFData, XISFile};
 use log::info;
 use std::{
     io,
@@ -69,36 +70,41 @@ pub fn xisf_data_to_fits(xisf_file: &XISFile) -> (Box<[u8]>, i64) {
     // | Float32 | f32   | -32  |
     // | Float64 | f64   | -64  |
     // +---------+-------+------+
-    let header = xisf_file.header();
-    let data = xisf_file.data();
-
-    for i in 0..header.geometry_channels() as usize {
-        match header.sample_format() {
-            XISFType::UInt8 => {
-                bitpix = 8;
-                fits_data.extend_from_slice(&data.uint8[i]);
+    match xisf_file.data() {
+        XISFData::UInt8(ref data) => {
+            bitpix = 8;
+            for channel in data.iter() {
+                fits_data.extend_from_slice(channel);
             }
-            XISFType::UInt16 => {
-                bitpix = 16;
-                fits_data.append(&mut convert::u16_to_i16_to_v_u8_be(&data.uint16[i]));
-            }
-            XISFType::UInt32 => {
-                bitpix = 32;
-                fits_data.append(&mut convert::u32_to_i32_to_v_u8_be(&data.uint32[i]));
-            }
-            XISFType::Float32 => {
-                bitpix = -32;
-                fits_data.append(&mut convert::f32_to_v_u8_be(&data.float32[i]));
-            }
-            XISFType::Float64 => {
-                bitpix = -64;
-                fits_data.append(&mut convert::f64_to_v_u8_be(&data.float64[i]));
-            }
-            _ => println!(
-                "Convert to FITS > Unsupported XISF type > {}",
-                header.sample_format().as_str()
-            ),
         }
+        XISFData::UInt16(ref data) => {
+            bitpix = 16;
+            for channel in data.iter() {
+                fits_data.append(&mut convert::u16_to_i16_to_v_u8_be(channel));
+            }
+        }
+        XISFData::UInt32(ref data) => {
+            bitpix = 32;
+            for channel in data.iter() {
+                fits_data.append(&mut convert::u32_to_i32_to_v_u8_be(channel));
+            }
+        }
+        // XISFData::UInt64(ref data) => unimplemented!(),
+        XISFData::Float32(ref data) => {
+            bitpix = -32;
+            for channel in data.iter() {
+                fits_data.append(&mut convert::f32_to_v_u8_be(channel));
+            }
+        }
+        XISFData::Float64(ref data) => {
+            bitpix = -64;
+            for channel in data.iter() {
+                fits_data.append(&mut convert::f64_to_v_u8_be(channel));
+            }
+        }
+        // XISFData::Complex32(ref data) => unimplemented!(),
+        // XISFData::Complex64(ref data) => unimplemented!(),
+        XISFData::Empty => {}
     }
 
     // Show the first 20 bytes of the converted image
@@ -132,8 +138,8 @@ fn main() -> io::Result<()> {
         info!("Convert to FITS > Write image data");
         let fits_hd = fitswriter::FitsHeaderData {
             bitpix,
-            naxis: xisf_file.header().geometry_sizes().len() as u64,
-            naxis_vec: xisf_file.header().geometry_sizes(),
+            naxis: xisf_file.header().geometry().dimensions().len() as u64,
+            naxis_vec: xisf_file.header().geometry().dimensions(),
             bzero: 0,
             bscale: 1,
             datamin: 0,
@@ -156,6 +162,7 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::xisfreader::XISFSampleFormat;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -171,8 +178,8 @@ mod test {
         let xisf_file = XISFile::read_file(xisf_filename);
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt8);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt8);
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -190,8 +197,8 @@ mod test {
         let xisf_file = XISFile::read_file(xisf_filename);
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:3");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
+                assert_eq!(file.header().geometry().to_string(), "256:256:3");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -209,8 +216,8 @@ mod test {
         let xisf_file = XISFile::read_file(xisf_filename);
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt32);
-                assert_eq!(file.header().geometry(), "256:256:3");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt32);
+                assert_eq!(file.header().geometry().to_string(), "256:256:3");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -229,8 +236,8 @@ mod test {
 
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt8);
-                assert_eq!(file.header().geometry(), "256:256:3");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt8);
+                assert_eq!(file.header().geometry().to_string(), "256:256:3");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -249,8 +256,8 @@ mod test {
 
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::Float32);
-                assert_eq!(file.header().geometry(), "255:255:1");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::Float32);
+                assert_eq!(file.header().geometry().to_string(), "255:255:1");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -269,8 +276,8 @@ mod test {
 
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::Float64);
-                assert_eq!(file.header().geometry(), "255:255:1");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::Float64);
+                assert_eq!(file.header().geometry().to_string(), "255:255:1");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -289,8 +296,8 @@ mod test {
 
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
                 assert_eq!(file.header().compression_codec(), "zlib");
             }
             Err(e) => {
@@ -310,8 +317,8 @@ mod test {
 
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
                 assert_eq!(file.header().compression_codec(), "zlib+sh");
             }
             Err(e) => {
@@ -332,8 +339,8 @@ mod test {
 
         match xisf_file {
             Ok(file) => {
-                assert_eq!(file.header().sample_format(), XISFType::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
                 assert_eq!(file.header().compression_codec(), "lz4");
             }
             Err(e) => {

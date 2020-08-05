@@ -1,10 +1,11 @@
 use crate::{convert, fitswriter::FITSKeyword};
-
 use compress::{lz4, zlib};
 use getset::{CopyGetters, Getters};
 use log::{debug, info};
 use quick_xml::{events::Event, Reader};
 use std::{
+    convert::{TryFrom, TryInto},
+    fmt,
     fs::File,
     io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
     path::Path,
@@ -95,10 +96,10 @@ impl XISFile {
         }
 
         // Interpret it as numbers and store as vector/s
-        if xisf_header.location_method() == "attachment" && 
-        // Goto to file position where the image begins
-        xisf_header.location_start() + xisf_header.location_length() <= file_size
+        if xisf_header.location_method() == "attachment"
+            && xisf_header.location_start() + xisf_header.location_length() <= file_size
         {
+            // Goto to file position where the image begins
             match f.seek(SeekFrom::Start(xisf_header.location_start())) {
                 Ok(v) => {
                     info!("Read XISF > File correctly seek: {:?}", v);
@@ -126,35 +127,67 @@ impl XISFile {
             };
 
             // Uncompress data
-            let image_data = if !xisf_header.compression_codec().is_empty() {
-                xisf_uncompress_data(&xisf_header, &image_data[..])
-            } else {
+            let image_data = if xisf_header.compression_codec().is_empty() {
                 image_data.into_boxed_slice()
+            } else {
+                xisf_uncompress_data(&xisf_header, image_data.as_slice())
             };
 
             // Read each channel
-            for n in 0..xisf_header.geometry_channels() {
-                let image_channel = &image_data[(xisf_header.geometry_channel_size() as u32 * n)
-                    as usize
-                    ..(xisf_header.geometry_channel_size() as u32 * (n + 1)) as usize];
+            let channel_count = xisf_header.geometry().channel_count();
+            let chunks_iter = image_data
+                .chunks_exact(xisf_header.geometry().channel_size())
+                .take(channel_count);
+            xisf_data = match xisf_header.sample_format() {
+                XISFSampleFormat::UInt8 => {
+                    let mut data = Vec::with_capacity(channel_count);
+                    for image_channel in chunks_iter {
+                        data.push(image_channel.to_vec().into_boxed_slice());
+                    }
 
-                // Convert bytes to actual numbers and store the channel in a vector
-                match xisf_header.sample_format() {
-                    XISFType::UInt8 => xisf_data.uint8.push(image_channel.to_vec()),
-                    XISFType::UInt16 => xisf_data.uint16.push(convert::u8_to_v_u16(&image_channel)),
-                    XISFType::UInt32 => xisf_data.uint32.push(convert::u8_to_v_u32(&image_channel)),
-                    XISFType::Float32 => {
-                        xisf_data.float32.push(convert::u8_to_v_f32(&image_channel))
+                    XISFData::UInt8(data.into_boxed_slice())
+                }
+                XISFSampleFormat::UInt16 => {
+                    let mut data = Vec::with_capacity(channel_count);
+                    for image_channel in chunks_iter {
+                        data.push(convert::u8_to_v_u16(&image_channel).into_boxed_slice());
                     }
-                    XISFType::Float64 => {
-                        xisf_data.float64.push(convert::u8_to_v_f64(&image_channel))
+
+                    XISFData::UInt16(data.into_boxed_slice())
+                }
+                XISFSampleFormat::UInt32 => {
+                    let mut data = Vec::with_capacity(channel_count);
+                    for image_channel in chunks_iter {
+                        data.push(convert::u8_to_v_u32(&image_channel).into_boxed_slice());
                     }
-                    _ => eprintln!(
+
+                    XISFData::UInt32(data.into_boxed_slice())
+                }
+                XISFSampleFormat::Float32 => {
+                    let mut data = Vec::with_capacity(channel_count);
+                    for image_channel in chunks_iter {
+                        data.push(convert::u8_to_v_f32(&image_channel).into_boxed_slice());
+                    }
+
+                    XISFData::Float32(data.into_boxed_slice())
+                }
+                XISFSampleFormat::Float64 => {
+                    let mut data = Vec::with_capacity(channel_count);
+                    for image_channel in chunks_iter {
+                        data.push(convert::u8_to_v_f64(&image_channel).into_boxed_slice());
+                    }
+
+                    XISFData::Float64(data.into_boxed_slice())
+                }
+                _ => {
+                    eprintln!(
                         "Read XISF > Unsupported type > {}",
                         xisf_header.sample_format().as_str()
-                    ),
+                    );
+                    process::exit(1);
+                    // TODO: better error handling
                 }
-            }
+            };
         }
 
         Ok(XISFile {
@@ -174,14 +207,10 @@ pub struct XISFHeader {
     length: u32,
     #[getset(get_copy = "pub")]
     reserved: u32,
-    geometry: Box<str>,
+    #[getset(get = "pub")]
+    geometry: XISFGeometry,
     #[getset(get_copy = "pub")]
-    geometry_channels: u32,
-    geometry_sizes: Box<[u64]>,
-    #[getset(get_copy = "pub")]
-    geometry_channel_size: u64,
-    #[getset(get_copy = "pub")]
-    sample_format: XISFType,
+    sample_format: XISFSampleFormat,
     color_space: Box<str>,
     location: Box<str>,
     location_method: Box<str>,
@@ -198,14 +227,6 @@ pub struct XISFHeader {
 impl XISFHeader {
     pub fn signature(&self) -> &str {
         &self.signature
-    }
-
-    pub fn geometry(&self) -> &str {
-        &self.geometry
-    }
-
-    pub fn geometry_sizes(&self) -> &[u64] {
-        &self.geometry_sizes
     }
 
     pub fn color_space(&self) -> &str {
@@ -228,6 +249,10 @@ impl XISFHeader {
         &self.compression_codec
     }
 
+    pub fn channel_size(&self) -> usize {
+        self.geometry().channel_size() * self.sample_format().size()
+    }
+
     /// Print header data
     fn print_info(&self) {
         // Print header values
@@ -237,10 +262,10 @@ impl XISFHeader {
         info!("Reserved: {}", self.reserved());
 
         info!("Geometry: {}", self.geometry());
-        info!("Geometry sizes: {:?}", self.geometry_sizes());
-        info!("Geometry channels: {}", self.geometry_channels());
-        info!("Geometry channel size: {}", self.geometry_channel_size());
-        info!("Sample format: {}", self.sample_format().as_str());
+        info!("Geometry dimensions: {:?}", self.geometry().dimensions());
+        info!("Geometry channels: {}", self.geometry().channel_count());
+        info!("Geometry channel size: {}", self.geometry().channel_size());
+        info!("Sample format: {}", self.sample_format());
         info!("Sample format bytes: {}", self.sample_format().size());
         info!("Color space: {}", self.color_space());
         info!("Location: {}", self.location());
@@ -248,9 +273,9 @@ impl XISFHeader {
         info!("Location start: {}", self.location_start());
         info!("Location length: {}", self.location_length());
         info!(
-            "Location length ({}) == channel size * channels ({})",
+            "Location length ({}) == channel_size * channel_count ({})",
             self.location_length(),
-            self.geometry_channel_size() * u64::from(self.geometry_channels())
+            self.channel_size() * self.geometry().channel_count()
         );
         info!(
             "Compression: {} {} {}",
@@ -267,11 +292,8 @@ struct XISFHeaderReader {
     signature: String,
     length: u32,
     reserved: u32,
-    geometry: String,
-    geometry_channels: u32,
-    geometry_sizes: Vec<u64>,
-    geometry_channel_size: u64,
-    sample_format: Option<XISFType>,
+    geometry: XISFGeometry,
+    sample_format: Option<XISFSampleFormat>,
     color_space: String,
     location: String,
     location_method: String,
@@ -315,24 +337,9 @@ impl XISFHeaderReader {
                                 );
                                 match attr.key {
                                     b"geometry" => {
-                                        // Parse geometry string (size_x:size_y:n)
-                                        self.geometry =
-                                            str::from_utf8(&attr.value).unwrap().to_owned();
-
-                                        // TODO: allow for more geometries
-                                        if self.geometry.contains(':') {
-                                            let mut iter = self.geometry.split(':');
-
-                                            let size_x =
-                                                iter.next().unwrap().parse::<u64>().unwrap();
-                                            let size_y =
-                                                iter.next().unwrap().parse::<u64>().unwrap();
-                                            let num_channels =
-                                                iter.next().unwrap().parse::<u32>().unwrap();
-
-                                            self.geometry_channel_size = size_x * size_y;
-                                            self.geometry_channels = num_channels;
-                                        }
+                                        // Parse geometry string (dim1:...:dimN:channel-count)
+                                        self.geometry = attr.value.as_ref().try_into().unwrap();
+                                        // TODO: better error handling
                                     }
                                     b"sampleFormat" => {
                                         // Parse image format
@@ -416,12 +423,6 @@ impl XISFHeaderReader {
             buf.clear();
         }
 
-        // Calculate the size in bytes of the image
-        let sample_format_bytes = self.sample_format.unwrap().size();
-        if sample_format_bytes > 0 {
-            self.geometry_channel_size *= u64::from(sample_format_bytes);
-        }
-
         Ok(())
     }
 
@@ -431,10 +432,7 @@ impl XISFHeaderReader {
             signature: self.signature.into_boxed_str(),
             length: self.length,
             reserved: self.reserved,
-            geometry: self.geometry.into_boxed_str(),
-            geometry_channels: self.geometry_channels,
-            geometry_sizes: self.geometry_sizes.into_boxed_slice(),
-            geometry_channel_size: self.geometry_channel_size,
+            geometry: self.geometry,
             sample_format: self.sample_format.unwrap(), // TODO: proper error handling
             color_space: self.color_space.into_boxed_str(),
             location: self.location.into_boxed_str(),
@@ -448,91 +446,160 @@ impl XISFHeaderReader {
     }
 }
 
-// Struct to store image data as vector
-#[derive(Debug, Default)]
-pub struct XISFData {
-    // pub int8:    Vec<Vec<i8>>,
-    pub uint8: Vec<Vec<u8>>,
-    // pub int16:   Vec<Vec<i16>>,
-    pub uint16: Vec<Vec<u16>>,
-    // pub int32:   Vec<Vec<i32>>,
-    pub uint32: Vec<Vec<u32>>,
-    // pub int64:   Vec<Vec<i64>>,
-    // pub uint64:  Vec<Vec<u64>>,
-    // pub int128:  Vec<Vec<i128>>,
-    // pub uint128: Vec<Vec<u128>>,
-    pub float32: Vec<Vec<f32>>,
-    pub float64: Vec<Vec<f64>>,
+// Image data as a vector
+#[derive(Debug, Clone)]
+pub enum XISFData {
+    Empty,
+    UInt8(Box<[Box<[u8]>]>),
+    UInt16(Box<[Box<[u16]>]>),
+    UInt32(Box<[Box<[u32]>]>),
+    // UInt64(Box<[Box<[u64]>]>),
+    Float32(Box<[Box<[f32]>]>),
+    Float64(Box<[Box<[f64]>]>),
+    // Complex32(Box<[Box<[Complex32]>]>),
+    // Complex64(Box<[Box<[Complex64]>]>),
 }
 
-/// Enumeration with the different XISF types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum XISFType {
-    Int8,
-    UInt8,
-    Int16,
-    UInt16,
-    Int32,
-    UInt32,
-    Float32,
-    Int64,
-    UInt64,
-    Float64,
-    Int128,
-    UInt128,
-    Float128,
-}
-
-impl XISFType {
-    /// Gets the size of the XISF type, in bytes.
-    fn size(self) -> u8 {
+impl XISFData {
+    /// Retrieves the sample format for the data.
+    pub fn sample_format(&self) -> Option<XISFSampleFormat> {
         match self {
-            Self::Int8 | Self::UInt8 => 1,
-            Self::Int16 | Self::UInt16 => 2,
-            Self::Int32 | Self::UInt32 | Self::Float32 => 4,
-            Self::Int64 | Self::UInt64 | Self::Float64 => 8,
-            Self::Int128 | Self::UInt128 | Self::Float128 => 16,
+            Self::Empty => None,
+            Self::UInt8(_) => Some(XISFSampleFormat::UInt8),
+            Self::UInt16(_) => Some(XISFSampleFormat::UInt16),
+            Self::UInt32(_) => Some(XISFSampleFormat::UInt32),
+            // Self::UInt64(_) => Some(XISFSampleFormat::UInt64),
+            Self::Float32(_) => Some(XISFSampleFormat::Float32),
+            Self::Float64(_) => Some(XISFSampleFormat::Float64),
+            // Self::Complex32(_) => Some(XISFSampleFormat::Complex32),
+            // Self::Complex64(_) => Some(XISFSampleFormat::Complex64),
+        }
+    }
+}
+
+impl Default for XISFData {
+    fn default() -> Self {
+        Self::Empty
+    }
+}
+
+/// Image geometry information for a XISF file.
+///
+/// [More information](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html#__XISF_Core_Elements_:_Image_Core_Element_:_Mandatory_Image_Attributes__)
+#[derive(Debug, Clone, Default)]
+pub struct XISFGeometry {
+    dimensions: Box<[usize]>,
+    channel_count: usize,
+}
+
+impl XISFGeometry {
+    pub fn dimensions(&self) -> &[usize] {
+        &self.dimensions
+    }
+
+    pub fn channel_count(&self) -> usize {
+        self.channel_count
+    }
+
+    pub fn channel_size(&self) -> usize {
+        self.dimensions.iter().product()
+    }
+}
+
+impl TryFrom<&[u8]> for XISFGeometry {
+    type Error = &'static str;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let mut iter = value.split(|b| *b == b':');
+
+        let channel_count = iter
+            .next_back()
+            .map(str::from_utf8)
+            .unwrap()
+            .unwrap()
+            .parse()
+            .unwrap(); // TODO: better error handling
+        let dimensions: Vec<_> = iter
+            .map(str::from_utf8)
+            .map(|dim| dim.unwrap().parse::<usize>().unwrap())
+            .collect();
+
+        Ok(Self {
+            dimensions: dimensions.into_boxed_slice(),
+            channel_count,
+        })
+    }
+}
+
+impl fmt::Display for XISFGeometry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for dim in self.dimensions.iter() {
+            write!(f, "{}:", dim)?;
+        }
+        write!(f, "{}", self.channel_count)
+    }
+}
+
+/// Enumeration with the different XISF sample formats
+///
+/// [More information](https://pixinsight.com/doc/docs/XISF-1.0-spec/XISF-1.0-spec.html#sampleformat_image_attribute)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XISFSampleFormat {
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float32,
+    Float64,
+    Complex32,
+    Complex64,
+}
+
+impl XISFSampleFormat {
+    /// Gets the size of the XISF type, in bytes.
+    fn size(self) -> usize {
+        match self {
+            Self::UInt8 => 1,
+            Self::UInt16 => 2,
+            Self::UInt32 | Self::Float32 | Self::Complex32 => 4,
+            Self::UInt64 | Self::Float64 | Self::Complex64 => 8,
         }
     }
 
     /// Gets the XISF type as a string.
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Int8 => "Int8",
             Self::UInt8 => "UInt8",
-            Self::Int16 => "Int16",
             Self::UInt16 => "UInt16",
-            Self::Int32 => "Int32",
             Self::UInt32 => "UInt32",
-            Self::Float32 => "Float32",
-            Self::Int64 => "Int64",
             Self::UInt64 => "UInt64",
+            Self::Float32 => "Float32",
             Self::Float64 => "Float64",
-            Self::Int128 => "Int128",
-            Self::UInt128 => "UInt128",
-            Self::Float128 => "Float128",
+            Self::Complex32 => "Complex32",
+            Self::Complex64 => "Complex64",
         }
     }
 }
 
-impl str::FromStr for XISFType {
+impl fmt::Display for XISFSampleFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl str::FromStr for XISFSampleFormat {
     type Err = String; // TODO: propper error handling.
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Int8" => Ok(Self::Int8),
             "UInt8" => Ok(Self::UInt8),
-            "Int16" => Ok(Self::Int16),
             "UInt16" => Ok(Self::UInt16),
-            "Int32" => Ok(Self::Int32),
             "UInt32" => Ok(Self::UInt32),
-            "Float32" => Ok(Self::Float32),
-            "Int64" => Ok(Self::Int64),
             "UInt64" => Ok(Self::UInt64),
+            "Float32" => Ok(Self::Float32),
             "Float64" => Ok(Self::Float64),
-            "Int128" => Ok(Self::Int128),
-            "UInt128" => Ok(Self::UInt128),
-            "Float128" => Ok(Self::Float128),
+            "Complex32" => Ok(Self::Complex32),
+            "Complex64" => Ok(Self::Complex64),
             _ => Err(format!("unsupported XISF type found: {}", s)),
         }
     }
@@ -593,8 +660,7 @@ fn xisf_uncompress_data(xisf_header: &XISFHeader, image_data: &[u8]) -> Box<[u8]
             xisf_header.compression_codec()
         );
         if xisf_header.compression_codec() == "zlib+sh" {
-            decompressed =
-                convert::unshuffle(&decompressed, xisf_header.sample_format().size() as usize);
+            decompressed = convert::unshuffle(&decompressed, xisf_header.sample_format().size());
             info!(
                 "Read XISF > Uncompressing > Unshuffling > Decompressed len: {}",
                 decompressed.len()

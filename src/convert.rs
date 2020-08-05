@@ -21,7 +21,7 @@ macro_rules! u8_to_t {
         #[allow(dead_code)]
         pub fn $func_name(vector: &[u8]) -> Vec<$type> {
             let mut rdr = Cursor::new(vector);
-            let mut values = Vec::new();
+            let mut values = Vec::with_capacity(vector.len() / std::mem::size_of::<$type>());
 
             loop {
                 let option = rdr.$read_func::<LittleEndian>();
