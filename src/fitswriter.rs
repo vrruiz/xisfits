@@ -5,20 +5,21 @@ use std::{
     path::Path,
 };
 
-pub struct FitsHeaderData {
+pub struct FitsHeaderData<'h> {
     pub bitpix: i64,
     pub naxis: u64,
-    pub naxis_vec: Vec<u64>,
+    pub naxis_vec: &'h [u64],
     pub bzero: u64,
     pub bscale: u64,
     pub datamin: u64,
     pub datamax: u64,
     pub history: Vec<String>,
     pub comment: Vec<String>,
-    pub data_bytes: Vec<u8>,
+    pub data_bytes: Box<[u8]>,
 }
 
 // Struct to store FITS keywords
+#[derive(Debug, Default)]
 pub struct FITSKeyword {
     pub name: String,
     pub value: String,
