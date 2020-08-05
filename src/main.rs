@@ -162,6 +162,7 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::xisfreader::XISFSampleFormat;
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -178,7 +179,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt8);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -197,7 +198,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:3");
+                assert_eq!(file.header().geometry().to_string(), "256:256:3");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -216,7 +217,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt32);
-                assert_eq!(file.header().geometry(), "256:256:3");
+                assert_eq!(file.header().geometry().to_string(), "256:256:3");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -236,7 +237,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt8);
-                assert_eq!(file.header().geometry(), "256:256:3");
+                assert_eq!(file.header().geometry().to_string(), "256:256:3");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -256,7 +257,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::Float32);
-                assert_eq!(file.header().geometry(), "255:255:1");
+                assert_eq!(file.header().geometry().to_string(), "255:255:1");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -276,7 +277,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::Float64);
-                assert_eq!(file.header().geometry(), "255:255:1");
+                assert_eq!(file.header().geometry().to_string(), "255:255:1");
             }
             Err(e) => {
                 eprintln!("Tests > Error: {}", e);
@@ -296,7 +297,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
                 assert_eq!(file.header().compression_codec(), "zlib");
             }
             Err(e) => {
@@ -317,7 +318,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
                 assert_eq!(file.header().compression_codec(), "zlib+sh");
             }
             Err(e) => {
@@ -339,7 +340,7 @@ mod test {
         match xisf_file {
             Ok(file) => {
                 assert_eq!(file.header().sample_format(), XISFSampleFormat::UInt16);
-                assert_eq!(file.header().geometry(), "256:256:1");
+                assert_eq!(file.header().geometry().to_string(), "256:256:1");
                 assert_eq!(file.header().compression_codec(), "lz4");
             }
             Err(e) => {
