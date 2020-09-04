@@ -136,7 +136,7 @@ impl XISFile {
             // Read each channel
             let channel_count = xisf_header.geometry().channel_count();
             let chunks_iter = image_data
-                .chunks_exact(xisf_header.geometry().channel_size())
+                .chunks_exact(xisf_header.channel_size())
                 .take(channel_count);
             xisf_data = match xisf_header.sample_format() {
                 XISFSampleFormat::UInt8 => {
