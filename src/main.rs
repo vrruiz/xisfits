@@ -72,18 +72,21 @@ pub fn xisf_data_to_fits(xisf_file: &XISFile) -> (Box<[u8]>, i64) {
     // +---------+-------+------+
     match xisf_file.data() {
         XISFData::UInt8(ref data) => {
+            info!("XISF data to FITS > UInt8");
             bitpix = 8;
             for channel in data.iter() {
                 fits_data.extend_from_slice(channel);
             }
         }
         XISFData::UInt16(ref data) => {
+            info!("XISF data to FITS > UInt16");
             bitpix = 16;
             for channel in data.iter() {
                 fits_data.append(&mut convert::u16_to_i16_to_v_u8_be(channel));
             }
         }
         XISFData::UInt32(ref data) => {
+            info!("XISF data to FITS > UInt32");
             bitpix = 32;
             for channel in data.iter() {
                 fits_data.append(&mut convert::u32_to_i32_to_v_u8_be(channel));
@@ -91,12 +94,14 @@ pub fn xisf_data_to_fits(xisf_file: &XISFile) -> (Box<[u8]>, i64) {
         }
         // XISFData::UInt64(ref data) => unimplemented!(),
         XISFData::Float32(ref data) => {
+            info!("XISF data to FITS > Float32");
             bitpix = -32;
             for channel in data.iter() {
                 fits_data.append(&mut convert::f32_to_v_u8_be(channel));
             }
         }
         XISFData::Float64(ref data) => {
+            info!("XISF data to FITS > Float64");
             bitpix = -64;
             for channel in data.iter() {
                 fits_data.append(&mut convert::f64_to_v_u8_be(channel));
